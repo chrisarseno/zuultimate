@@ -33,6 +33,7 @@ class Policy(Base, TimestampMixin):
     resource_pattern: Mapped[str] = mapped_column(String(500))
     action_pattern: Mapped[str] = mapped_column(String(200))
     priority: Mapped[int] = mapped_column(Integer, default=0)
+    role_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
 
 class RoleAssignment(Base, TimestampMixin):

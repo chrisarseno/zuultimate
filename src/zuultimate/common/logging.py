@@ -1,9 +1,15 @@
 """Structured JSON logging for Zuultimate."""
 
-import logging
+import contextvars
 import json
+import logging
 import sys
 from datetime import datetime, timezone
+
+# Context variable for per-request correlation ID
+request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "request_id", default=None
+)
 
 
 class JSONFormatter(logging.Formatter):
@@ -14,6 +20,9 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        req_id = request_id_var.get()
+        if req_id:
+            log_data["request_id"] = req_id
         if record.exc_info and record.exc_info[1]:
             log_data["exception"] = str(record.exc_info[1])
         return json.dumps(log_data)

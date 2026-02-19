@@ -20,14 +20,29 @@ class PolicySchema(BaseModel):
     resource_pattern: str
     action_pattern: str
     priority: int = 0
+    role_id: str | None = None
+
+
+class PolicyResponse(BaseModel):
+    id: str
+    name: str
+    effect: str
+    resource_pattern: str
+    action_pattern: str
+    priority: int
+    role_id: str | None = None
 
 
 class RoleAssignRequest(BaseModel):
     role_id: str
     user_id: str
+    assigned_by: str | None = None
 
 
-class RoleResponse(BaseModel):
+class RoleAssignResponse(BaseModel):
     id: str
-    name: str
-    description: str = ""
+    role_id: str
+    user_id: str
+    assigned_by: str | None = None
+
+

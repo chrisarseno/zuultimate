@@ -33,6 +33,13 @@ class ZuulSettings(BaseSettings):
     # Limits
     max_audit_events: int = 10000
     threat_score_threshold: float = 0.3
+    max_request_bytes: int = 1_048_576  # 1 MB
+
+    # Auth / tokens
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 7
+    login_rate_limit: int = 10
+    login_rate_window: int = 300  # seconds
 
 
 @lru_cache

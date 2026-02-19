@@ -8,9 +8,24 @@ class SnapshotCreate(BaseModel):
     source: str
 
 
+class SnapshotResponse(BaseModel):
+    id: str
+    name: str
+    source: str
+    checksum: str
+    status: str
+
+
 class RestoreRequest(BaseModel):
     snapshot_id: str
     target: str
+
+
+class RestoreResponse(BaseModel):
+    id: str
+    snapshot_id: str
+    target: str
+    status: str
 
 
 class IntegrityCheckRequest(BaseModel):

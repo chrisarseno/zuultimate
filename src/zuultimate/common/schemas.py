@@ -16,8 +16,8 @@ class Pagination(BaseModel):
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    items: list[T] = []
-    pagination: Pagination = Pagination()
+    items: list[T] = Field(default_factory=list)
+    pagination: Pagination = Field(default_factory=Pagination)
 
 
 class ErrorResponse(BaseModel):
@@ -31,10 +31,15 @@ class HealthResponse(BaseModel):
     version: str = "0.1.0"
     environment: str = "development"
     timestamp: datetime | None = None
+    checks: dict[str, str] | None = None
 
 
-class StubResponse(BaseModel):
-    """Response for unimplemented modules."""
-    error: str = "Module not yet implemented"
-    code: str = "NOT_IMPLEMENTED"
-    module: str = ""
+# Standard OpenAPI error response documentation
+STANDARD_ERRORS: dict[int, dict] = {
+    401: {"model": ErrorResponse, "description": "Authentication required or token invalid"},
+    403: {"model": ErrorResponse, "description": "Insufficient permissions"},
+    404: {"model": ErrorResponse, "description": "Resource not found"},
+    422: {"model": ErrorResponse, "description": "Validation error"},
+    429: {"model": ErrorResponse, "description": "Rate limit exceeded"},
+    500: {"model": ErrorResponse, "description": "Internal server error"},
+}

@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from csuite.core.plugins import Plugin, hook
+try:
+    from csuite.core.plugins import Plugin, hook
+except ImportError as _exc:
+    raise ImportError(
+        "csuite_plugin requires the 'csuite' package. "
+        "Install it or use zuultimate without the C-Suite integration."
+    ) from _exc
 
 from zuultimate.ai_security.service import AISecurityService
 

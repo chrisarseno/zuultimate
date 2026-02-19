@@ -1,32 +1,67 @@
-"""Access control router -- stub endpoints returning HTTP 501."""
+"""Access control router -- policy evaluation, role assignment."""
 
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from zuultimate.common.schemas import StubResponse
+from zuultimate.access.schemas import (
+    AccessCheckRequest,
+    AccessCheckResponse,
+    PolicyResponse,
+    PolicySchema,
+    RoleAssignRequest,
+    RoleAssignResponse,
+)
+from zuultimate.access.service import AccessService
+from zuultimate.common.auth import get_current_user
+from zuultimate.common.exceptions import ZuulError
+from zuultimate.common.schemas import STANDARD_ERRORS
 
-router = APIRouter(prefix="/access", tags=["access"])
+router = APIRouter(
+    prefix="/access",
+    tags=["access"],
+    dependencies=[Depends(get_current_user)],
+    responses=STANDARD_ERRORS,
+)
 
 
-@router.post("/check")
-async def check_access() -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content=StubResponse(module="access").model_dump(),
-    )
+def _get_service(request: Request) -> AccessService:
+    return AccessService(request.app.state.db)
 
 
-@router.post("/policies")
-async def create_policy() -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content=StubResponse(module="access").model_dump(),
-    )
+@router.post("/check", response_model=AccessCheckResponse)
+async def check_access(body: AccessCheckRequest, request: Request):
+    svc = _get_service(request)
+    try:
+        return await svc.check_access(
+            user_id=body.user_id, resource=body.resource, action=body.action
+        )
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/roles/assign")
-async def assign_role() -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content=StubResponse(module="access").model_dump(),
-    )
+@router.post("/policies", response_model=PolicyResponse)
+async def create_policy(body: PolicySchema, request: Request):
+    svc = _get_service(request)
+    try:
+        return await svc.create_policy(
+            name=body.name,
+            effect=body.effect,
+            resource_pattern=body.resource_pattern,
+            action_pattern=body.action_pattern,
+            priority=body.priority,
+            role_id=body.role_id,
+        )
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/roles/assign", response_model=RoleAssignResponse)
+async def assign_role(body: RoleAssignRequest, request: Request):
+    svc = _get_service(request)
+    try:
+        return await svc.assign_role(
+            role_id=body.role_id,
+            user_id=body.user_id,
+            assigned_by=body.assigned_by,
+        )
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)

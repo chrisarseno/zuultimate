@@ -2,13 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+# Copy build metadata first (keeps Docker layer caching useful)
+COPY pyproject.toml README.md ./
 
+# Copy source BEFORE installing
 COPY src/ src/
-COPY config/ config/
 COPY alembic.ini .
 COPY alembic/ alembic/
+COPY config/ config/
+
+RUN pip install --no-cache-dir .
 
 RUN mkdir -p data
 

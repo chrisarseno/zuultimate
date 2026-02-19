@@ -15,6 +15,7 @@ class Snapshot(Base, TimestampMixin):
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
     checksum: Mapped[str] = mapped_column(String(128), default="")
     status: Mapped[str] = mapped_column(String(50), default="pending")
+    tenant_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
 
 class RestoreJob(Base, TimestampMixin):

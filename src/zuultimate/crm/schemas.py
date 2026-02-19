@@ -8,6 +8,17 @@ class CRMConfigCreate(BaseModel):
     api_url: str = ""
 
 
+class CRMConfigResponse(BaseModel):
+    id: str
+    provider: str
+    api_url: str
+    is_active: bool
+
+
+class SyncStartRequest(BaseModel):
+    config_id: str
+
+
 class SyncJobResponse(BaseModel):
     id: str
     config_id: str
@@ -15,7 +26,3 @@ class SyncJobResponse(BaseModel):
     records_synced: int
 
 
-class FieldMappingCreate(BaseModel):
-    source_field: str
-    target_field: str
-    transform: str = ""

@@ -19,15 +19,15 @@ class DetectionItem(BaseModel):
 class ScanResponse(BaseModel):
     is_threat: bool
     threat_score: float
-    detections: list[DetectionItem] = []
-    heuristic_flags: list[str] = []
+    detections: list[DetectionItem] = Field(default_factory=list)
+    heuristic_flags: list[str] = Field(default_factory=list)
 
 
 class GuardRequest(BaseModel):
     tool_name: str
     agent_code: str
     tool_category: str = "general"
-    parameters: dict = {}
+    parameters: dict = Field(default_factory=dict)
 
 
 class GuardResponse(BaseModel):
@@ -48,7 +48,7 @@ class RedTeamResponse(BaseModel):
     detected: int
     bypassed: int
     detection_rate: float
-    bypassed_payloads: list[str] = []
+    bypassed_payloads: list[str] = Field(default_factory=list)
 
 
 class AuditQueryParams(BaseModel):

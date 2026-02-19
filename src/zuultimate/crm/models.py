@@ -13,6 +13,7 @@ class CRMConfig(Base, TimestampMixin):
     provider: Mapped[str] = mapped_column(String(100), nullable=False)
     api_url: Mapped[str] = mapped_column(String(500), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    tenant_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
 
 class SyncJob(Base, TimestampMixin):

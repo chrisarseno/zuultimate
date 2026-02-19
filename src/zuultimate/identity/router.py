@@ -1,40 +1,167 @@
-"""Identity router -- stub endpoints returning HTTP 501."""
+"""Identity router -- registration, login, logout, token refresh."""
 
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from zuultimate.common.schemas import StubResponse
+from zuultimate.common.auth import get_current_user
+from zuultimate.common.exceptions import ZuulError
+from zuultimate.common.rate_limit import rate_limit_login
+from zuultimate.common.schemas import STANDARD_ERRORS
+from zuultimate.identity.mfa_service import MFAService
+from zuultimate.identity.schemas import (
+    EmailVerificationResponse,
+    EmailVerifyRequest,
+    LoginRequest,
+    MFAChallengeRequest,
+    MFASetupResponse,
+    MFAVerifyRequest,
+    RefreshRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+    VerificationTokenResponse,
+)
+from zuultimate.identity.service import IdentityService
 
-router = APIRouter(prefix="/identity", tags=["identity"])
-
-
-@router.post("/register")
-async def register() -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content=StubResponse(module="identity").model_dump(),
-    )
-
-
-@router.post("/login")
-async def login() -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content=StubResponse(module="identity").model_dump(),
-    )
-
-
-@router.get("/users/{user_id}")
-async def get_user(user_id: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content=StubResponse(module="identity").model_dump(),
-    )
+router = APIRouter(prefix="/identity", tags=["identity"], responses=STANDARD_ERRORS)
 
 
-@router.post("/refresh")
-async def refresh_token() -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content=StubResponse(module="identity").model_dump(),
+def _get_service(request: Request) -> IdentityService:
+    return IdentityService(request.app.state.db, request.app.state.settings)
+
+
+@router.post("/register", response_model=UserResponse)
+async def register(body: RegisterRequest, request: Request):
+    svc = _get_service(request)
+    try:
+        return await svc.register(
+            email=body.email,
+            username=body.username,
+            password=body.password,
+            display_name=body.display_name,
+        )
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_login)],
+)
+async def login(body: LoginRequest, request: Request):
+    svc = _get_service(request)
+    try:
+        return await svc.login(username=body.username, password=body.password)
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(body: RefreshRequest, request: Request):
+    svc = _get_service(request)
+    try:
+        return await svc.refresh_token(body.refresh_token)
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: str,
+    request: Request,
+    _user: dict = Depends(get_current_user),
+):
+    svc = _get_service(request)
+    try:
+        return await svc.get_user(user_id)
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/logout")
+async def logout(request: Request, _user: dict = Depends(get_current_user)):
+    svc = _get_service(request)
+    auth = request.headers.get("Authorization", "")
+    token = auth[len("Bearer "):]
+    await svc.logout(token)
+    return {"detail": "Logged out"}
+
+
+@router.post("/verify-email/send", response_model=VerificationTokenResponse)
+async def send_verification(request: Request, user: dict = Depends(get_current_user)):
+    svc = _get_service(request)
+    try:
+        return await svc.create_verification_token(user["user_id"])
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/verify-email/confirm", response_model=EmailVerificationResponse)
+async def confirm_verification(body: EmailVerifyRequest, request: Request):
+    svc = _get_service(request)
+    try:
+        return await svc.verify_email(body.token)
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+def _get_mfa_service(request: Request) -> MFAService:
+    return MFAService(request.app.state.db, request.app.state.settings)
+
+
+@router.post("/mfa/setup", response_model=MFASetupResponse)
+async def mfa_setup(request: Request, user: dict = Depends(get_current_user)):
+    svc = _get_mfa_service(request)
+    try:
+        return await svc.setup_totp(user["user_id"])
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/mfa/verify")
+async def mfa_verify(
+    body: MFAVerifyRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    svc = _get_mfa_service(request)
+    try:
+        return await svc.verify_totp(user["user_id"], body.code)
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post("/mfa/challenge", response_model=TokenResponse)
+async def mfa_challenge(body: MFAChallengeRequest, request: Request):
+    mfa_svc = _get_mfa_service(request)
+    try:
+        result = await mfa_svc.complete_challenge(body.mfa_token, body.code)
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    # Issue full tokens after MFA verification
+    import hashlib
+
+    from sqlalchemy import select
+
+    from zuultimate.identity.models import User, UserSession
+
+    id_svc = _get_service(request)
+    async with id_svc.db.get_session("identity") as session:
+        res = await session.execute(
+            select(User).where(User.id == result["user_id"], User.is_active == True)
+        )
+        user = res.scalar_one()
+        access_token, refresh_token = id_svc._make_token_pair(user)
+        user_session = UserSession(
+            user_id=user.id,
+            access_token_hash=hashlib.sha256(access_token.encode()).hexdigest(),
+            refresh_token_hash=hashlib.sha256(refresh_token.encode()).hexdigest(),
+        )
+        session.add(user_session)
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=request.app.state.settings.access_token_expire_minutes * 60,
     )
