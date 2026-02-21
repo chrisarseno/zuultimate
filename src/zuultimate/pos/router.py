@@ -31,7 +31,7 @@ def _get_service(request: Request) -> POSService:
     return POSService(request.app.state.db)
 
 
-@router.post("/terminals", response_model=TerminalResponse)
+@router.post("/terminals", summary="Register POS terminal", response_model=TerminalResponse)
 async def register_terminal(body: TerminalCreate, request: Request):
     svc = _get_service(request)
     try:
@@ -42,7 +42,7 @@ async def register_terminal(body: TerminalCreate, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/transactions", response_model=TransactionResponse)
+@router.post("/transactions", summary="Create POS transaction", response_model=TransactionResponse)
 async def create_transaction(
     body: TransactionCreate,
     request: Request,
@@ -79,7 +79,7 @@ async def create_transaction(
     return result
 
 
-@router.post("/settlements/{terminal_id}")
+@router.post("/settlements/{terminal_id}", summary="Settle terminal transactions")
 async def create_settlement(terminal_id: str, request: Request):
     svc = _get_service(request)
     try:
@@ -88,7 +88,7 @@ async def create_settlement(terminal_id: str, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.get("/settlements/{settlement_id}")
+@router.get("/settlements/{settlement_id}", summary="Get settlement details")
 async def get_settlement(settlement_id: str, request: Request):
     svc = _get_service(request)
     try:
@@ -97,13 +97,13 @@ async def get_settlement(settlement_id: str, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.get("/reconcile/{terminal_id}")
+@router.get("/reconcile/{terminal_id}", summary="Reconcile terminal ledger")
 async def reconcile(terminal_id: str, request: Request):
     svc = _get_service(request)
     return await svc.reconcile(terminal_id)
 
 
-@router.get("/fraud-alerts", response_model=PaginatedResponse[FraudAlertResponse])
+@router.get("/fraud-alerts", summary="List fraud alerts", response_model=PaginatedResponse[FraudAlertResponse])
 async def get_fraud_alerts(
     request: Request,
     resolved: bool | None = Query(default=None),

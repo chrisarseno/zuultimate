@@ -9,29 +9,29 @@ T = TypeVar("T")
 
 
 class Pagination(BaseModel):
-    page: int = Field(1, ge=1)
-    page_size: int = Field(50, ge=1, le=200)
-    total: int = 0
-    total_pages: int = 0
+    page: int = Field(1, ge=1, description="Current page number")
+    page_size: int = Field(50, ge=1, le=200, description="Items per page")
+    total: int = Field(default=0, description="Total number of items")
+    total_pages: int = Field(default=0, description="Total number of pages")
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    items: list[T] = Field(default_factory=list)
-    pagination: Pagination = Field(default_factory=Pagination)
+    items: list[T] = Field(default_factory=list, description="Page of results")
+    pagination: Pagination = Field(default_factory=Pagination, description="Pagination metadata")
 
 
 class ErrorResponse(BaseModel):
-    error: str
-    code: str = "ZUUL_ERROR"
-    detail: str | None = None
+    error: str = Field(..., description="Error message")
+    code: str = Field(default="ZUUL_ERROR", description="Machine-readable error code")
+    detail: str | None = Field(default=None, description="Additional error context")
 
 
 class HealthResponse(BaseModel):
-    status: str = "ok"
-    version: str = "0.1.0"
-    environment: str = "development"
-    timestamp: datetime | None = None
-    checks: dict[str, str] | None = None
+    status: str = Field(default="ok", description="Overall health status")
+    version: str = Field(default="0.1.0", description="API version")
+    environment: str = Field(default="development", description="Current environment")
+    timestamp: datetime | None = Field(default=None, description="Health check timestamp")
+    checks: dict[str, str] | None = Field(default=None, description="Per-subsystem check results")
 
 
 # Standard OpenAPI error response documentation

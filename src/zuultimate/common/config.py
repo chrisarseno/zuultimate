@@ -38,7 +38,7 @@ class ZuulSettings(BaseSettings):
 
     # API
     api_title: str = "Zuultimate"
-    api_version: str = "0.1.0"
+    api_version: str = "1.0.0"
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # Limits

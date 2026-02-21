@@ -31,7 +31,7 @@ def _get_service(request: Request) -> VaultService:
     return VaultService(request.app.state.db, request.app.state.settings)
 
 
-@router.post("/encrypt", response_model=EncryptResponse)
+@router.post("/encrypt", summary="Encrypt plaintext", response_model=EncryptResponse)
 async def encrypt(body: EncryptRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -42,7 +42,7 @@ async def encrypt(body: EncryptRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/decrypt", response_model=DecryptResponse)
+@router.post("/decrypt", summary="Decrypt stored blob", response_model=DecryptResponse)
 async def decrypt(body: DecryptRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -51,7 +51,7 @@ async def decrypt(body: DecryptRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/tokenize", response_model=TokenizeResponse)
+@router.post("/tokenize", summary="Tokenize sensitive value", response_model=TokenizeResponse)
 async def tokenize(body: TokenizeRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -60,7 +60,7 @@ async def tokenize(body: TokenizeRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/detokenize", response_model=DetokenizeResponse)
+@router.post("/detokenize", summary="Detokenize to original value", response_model=DetokenizeResponse)
 async def detokenize(body: DetokenizeRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -69,7 +69,7 @@ async def detokenize(body: DetokenizeRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/rotate/{blob_id}")
+@router.post("/rotate/{blob_id}", summary="Rotate encryption for blob")
 async def rotate_blob(blob_id: str, request: Request):
     svc = _get_service(request)
     try:
@@ -78,7 +78,7 @@ async def rotate_blob(blob_id: str, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/rotate-all")
+@router.post("/rotate-all", summary="Rotate all encrypted blobs")
 async def rotate_all(request: Request):
     svc = _get_service(request)
     return await svc.rotate_all()
@@ -91,7 +91,7 @@ def _get_pw_vault(request: Request) -> PasswordVaultService:
     return PasswordVaultService(request.app.state.db, request.app.state.settings)
 
 
-@router.post("/secrets")
+@router.post("/secrets", summary="Store user secret")
 async def store_secret(
     request: Request,
     body: StoreSecretRequest,
@@ -110,7 +110,7 @@ async def store_secret(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.get("/secrets")
+@router.get("/secrets", summary="List user secrets")
 async def list_secrets(
     request: Request,
     user: dict = Depends(get_current_user),
@@ -119,7 +119,7 @@ async def list_secrets(
     return await svc.list_secrets(user["user_id"])
 
 
-@router.get("/secrets/{secret_id}")
+@router.get("/secrets/{secret_id}", summary="Get secret by ID")
 async def get_secret(
     secret_id: str,
     request: Request,
@@ -132,7 +132,7 @@ async def get_secret(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.delete("/secrets/{secret_id}")
+@router.delete("/secrets/{secret_id}", summary="Delete user secret")
 async def delete_secret(
     secret_id: str,
     request: Request,

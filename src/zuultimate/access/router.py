@@ -27,7 +27,7 @@ def _get_service(request: Request) -> AccessService:
     return AccessService(request.app.state.db)
 
 
-@router.post("/check", response_model=AccessCheckResponse)
+@router.post("/check", summary="Check access permission", response_model=AccessCheckResponse)
 async def check_access(body: AccessCheckRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -38,7 +38,7 @@ async def check_access(body: AccessCheckRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/policies", response_model=PolicyResponse)
+@router.post("/policies", summary="Create access policy", response_model=PolicyResponse)
 async def create_policy(body: PolicySchema, request: Request):
     svc = _get_service(request)
     try:
@@ -54,7 +54,7 @@ async def create_policy(body: PolicySchema, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/roles/assign", response_model=RoleAssignResponse)
+@router.post("/roles/assign", summary="Assign role to user", response_model=RoleAssignResponse)
 async def assign_role(body: RoleAssignRequest, request: Request):
     svc = _get_service(request)
     try:

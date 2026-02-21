@@ -26,7 +26,7 @@ def _get_service(request: Request) -> CRMService:
     return CRMService(request.app.state.db)
 
 
-@router.post("/configs", response_model=CRMConfigResponse)
+@router.post("/configs", summary="Create CRM config", response_model=CRMConfigResponse)
 async def create_config(body: CRMConfigCreate, request: Request):
     svc = _get_service(request)
     try:
@@ -35,7 +35,7 @@ async def create_config(body: CRMConfigCreate, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/sync", response_model=SyncJobResponse)
+@router.post("/sync", summary="Start CRM sync job", response_model=SyncJobResponse)
 async def start_sync(body: SyncStartRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -44,7 +44,7 @@ async def start_sync(body: SyncStartRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.get("/sync/{job_id}", response_model=SyncJobResponse)
+@router.get("/sync/{job_id}", summary="Get sync job status", response_model=SyncJobResponse)
 async def get_sync_status(job_id: str, request: Request):
     svc = _get_service(request)
     try:
@@ -53,13 +53,13 @@ async def get_sync_status(job_id: str, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.get("/adapters")
+@router.get("/adapters", summary="List CRM adapters")
 async def available_adapters():
     """List all registered CRM provider adapters."""
     return {"adapters": list_adapters()}
 
 
-@router.post("/adapters/{provider}/test")
+@router.post("/adapters/{provider}/test", summary="Test CRM adapter connectivity")
 async def test_adapter(provider: str, request: Request):
     """Test connectivity to a CRM provider."""
     try:
@@ -70,7 +70,7 @@ async def test_adapter(provider: str, request: Request):
     return result
 
 
-@router.post("/adapters/{provider}/fetch")
+@router.post("/adapters/{provider}/fetch", summary="Fetch contacts from adapter")
 async def fetch_contacts(provider: str, request: Request):
     """Fetch sample contacts from a CRM provider adapter."""
     try:

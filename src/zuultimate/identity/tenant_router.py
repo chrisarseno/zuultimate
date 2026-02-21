@@ -15,7 +15,7 @@ def _get_service(request: Request) -> TenantService:
     return TenantService(request.app.state.db)
 
 
-@router.post("", response_model=TenantResponse)
+@router.post("", summary="Create tenant", response_model=TenantResponse)
 async def create_tenant(
     body: TenantCreateRequest,
     request: Request,
@@ -28,7 +28,7 @@ async def create_tenant(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.get("", response_model=list[TenantResponse])
+@router.get("", summary="List all tenants", response_model=list[TenantResponse])
 async def list_tenants(
     request: Request,
     _user: dict = Depends(get_current_user),
@@ -37,7 +37,7 @@ async def list_tenants(
     return await svc.list_tenants()
 
 
-@router.get("/{tenant_id}", response_model=TenantResponse)
+@router.get("/{tenant_id}", summary="Get tenant by ID", response_model=TenantResponse)
 async def get_tenant(
     tenant_id: str,
     request: Request,
@@ -50,7 +50,7 @@ async def get_tenant(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/{tenant_id}/deactivate", response_model=TenantResponse)
+@router.post("/{tenant_id}/deactivate", summary="Deactivate tenant", response_model=TenantResponse)
 async def deactivate_tenant(
     tenant_id: str,
     request: Request,

@@ -27,7 +27,7 @@ def _get_service(request: Request) -> BackupService:
     return BackupService(request.app.state.db)
 
 
-@router.post("/snapshots", response_model=SnapshotResponse)
+@router.post("/snapshots", summary="Create backup snapshot", response_model=SnapshotResponse)
 async def create_snapshot(body: SnapshotCreate, request: Request):
     svc = _get_service(request)
     try:
@@ -36,7 +36,7 @@ async def create_snapshot(body: SnapshotCreate, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/restore", response_model=RestoreResponse)
+@router.post("/restore", summary="Restore from snapshot", response_model=RestoreResponse)
 async def restore(body: RestoreRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -45,7 +45,7 @@ async def restore(body: RestoreRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/integrity-check", response_model=IntegrityCheckResponse)
+@router.post("/integrity-check", summary="Run integrity check", response_model=IntegrityCheckResponse)
 async def check_integrity(body: IntegrityCheckRequest, request: Request):
     svc = _get_service(request)
     try:

@@ -57,6 +57,20 @@ async def test_compliance_report(integration_client):
     resp = await integration_client.get("/v1/ai/compliance/report", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
+    # Top-level fields
     assert "generated_at" in data
+    assert "period" in data
     assert "summary" in data
+    assert "by_type" in data
+    assert "by_severity" in data
+    assert "threat_analysis" in data
+    assert "agent_activity" in data
+    assert "policy_violations" in data
+    # Nested summary fields
     assert "total_events" in data["summary"]
+    # Nested period fields
+    assert "start" in data["period"]
+    assert "end" in data["period"]
+    # Nested threat_analysis fields
+    assert "total_threats" in data["threat_analysis"]
+    assert "avg_threat_score" in data["threat_analysis"]

@@ -48,7 +48,7 @@ async def _persist_latest_audit(svc: AISecurityService, request: Request) -> Non
                 await persist_event(db, latest[-1])
 
 
-@router.post("/scan", response_model=ScanResponse)
+@router.post("/scan", summary="Scan text for threats", response_model=ScanResponse)
 async def scan_text(req: ScanRequest, request: Request):
     svc = _get_service(request)
     result = svc.scan(req.text, req.agent_code)
@@ -72,7 +72,7 @@ async def scan_text(req: ScanRequest, request: Request):
     )
 
 
-@router.post("/guard/check", response_model=GuardResponse)
+@router.post("/guard/check", summary="Check tool guard policy", response_model=GuardResponse)
 async def guard_check(req: GuardRequest, request: Request):
     svc = _get_service(request)
     decision = await svc.guard_check(req.tool_name, req.agent_code, req.parameters, req.tool_category)
@@ -89,6 +89,7 @@ async def guard_check(req: GuardRequest, request: Request):
 
 @router.post(
     "/redteam/execute",
+    summary="Execute red team attack suite",
     response_model=RedTeamResponse,
     dependencies=[Depends(rate_limit_login)],
 )
@@ -107,7 +108,7 @@ async def red_team_execute(req: RedTeamRequest, request: Request):
     )
 
 
-@router.get("/audit", response_model=PaginatedResponse[AuditEventItem])
+@router.get("/audit", summary="Query audit events", response_model=PaginatedResponse[AuditEventItem])
 async def query_audit(
     request: Request,
     event_type: str | None = None,
@@ -166,7 +167,7 @@ async def query_audit(
     return paginate_list(all_items, page=page, page_size=page_size)
 
 
-@router.get("/compliance/report")
+@router.get("/compliance/report", summary="Generate compliance report")
 async def compliance_report(request: Request):
     """Generate a compliance report from security audit data."""
     db = getattr(request.app.state, "db", None)
@@ -176,7 +177,7 @@ async def compliance_report(request: Request):
     return await reporter.generate_report()
 
 
-@router.get("/retention/stats")
+@router.get("/retention/stats", summary="Get retention statistics")
 async def retention_stats(
     request: Request,
     retention_days: int = Query(default=90, ge=1, le=3650),
@@ -189,7 +190,7 @@ async def retention_stats(
     return await svc.get_stats()
 
 
-@router.post("/retention/archive")
+@router.post("/retention/archive", summary="Archive expired audit events")
 async def retention_archive(
     request: Request,
     retention_days: int = Query(default=90, ge=1, le=3650),
@@ -206,7 +207,7 @@ async def retention_archive(
     }
 
 
-@router.post("/retention/purge", dependencies=[Depends(rate_limit_login)])
+@router.post("/retention/purge", summary="Purge expired audit events", dependencies=[Depends(rate_limit_login)])
 async def retention_purge(
     request: Request,
     retention_days: int = Query(default=90, ge=1, le=3650),

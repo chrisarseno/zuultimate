@@ -4,30 +4,30 @@ from pydantic import BaseModel, Field
 
 
 class EncryptRequest(BaseModel):
-    plaintext: str
-    label: str = ""
-    owner_id: str = ""
+    plaintext: str = Field(..., description="Data to encrypt (AES-256-GCM)", examples=["sensitive-data-here"])
+    label: str = Field(default="", description="Optional label for the encrypted blob", examples=["api-key-prod"])
+    owner_id: str = Field(default="", description="Owner user ID for access control")
 
 
 class EncryptResponse(BaseModel):
-    blob_id: str
-    label: str
+    blob_id: str = Field(..., description="UUID of the encrypted blob")
+    label: str = Field(..., description="Label associated with the blob")
 
 
 class DecryptRequest(BaseModel):
-    blob_id: str
+    blob_id: str = Field(..., description="UUID of the blob to decrypt")
 
 
 class DecryptResponse(BaseModel):
-    plaintext: str
+    plaintext: str = Field(..., description="Decrypted plaintext data")
 
 
 class TokenizeRequest(BaseModel):
-    value: str
+    value: str = Field(..., description="Sensitive value to tokenize", examples=["4111-1111-1111-1111"])
 
 
 class TokenizeResponse(BaseModel):
-    token: str
+    token: str = Field(..., description="Opaque token replacing the original value")
 
 
 class DetokenizeRequest(BaseModel):

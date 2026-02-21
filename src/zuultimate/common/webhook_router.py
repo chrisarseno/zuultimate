@@ -29,7 +29,7 @@ def _get_service(request: Request) -> WebhookService:
     return WebhookService(request.app.state.db)
 
 
-@router.post("", response_model=WebhookResponse)
+@router.post("", summary="Create webhook", response_model=WebhookResponse)
 async def create_webhook(
     body: WebhookCreateRequest,
     request: Request,
@@ -44,7 +44,7 @@ async def create_webhook(
     )
 
 
-@router.get("", response_model=list[WebhookResponse])
+@router.get("", summary="List all webhooks", response_model=list[WebhookResponse])
 async def list_webhooks(
     request: Request,
     _user: dict = Depends(get_current_user),
@@ -53,7 +53,7 @@ async def list_webhooks(
     return await svc.list_webhooks()
 
 
-@router.delete("/{webhook_id}")
+@router.delete("/{webhook_id}", summary="Delete webhook")
 async def delete_webhook(
     webhook_id: str,
     request: Request,

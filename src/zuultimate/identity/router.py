@@ -31,6 +31,7 @@ def _get_service(request: Request) -> IdentityService:
 
 @router.post(
     "/register",
+    summary="Register new user",
     response_model=UserResponse,
     dependencies=[Depends(rate_limit_login)],
 )
@@ -49,6 +50,7 @@ async def register(body: RegisterRequest, request: Request):
 
 @router.post(
     "/login",
+    summary="Authenticate user",
     response_model=TokenResponse,
     dependencies=[Depends(rate_limit_login)],
 )
@@ -62,6 +64,7 @@ async def login(body: LoginRequest, request: Request):
 
 @router.post(
     "/refresh",
+    summary="Refresh access token",
     response_model=TokenResponse,
     dependencies=[Depends(rate_limit_login)],
 )
@@ -73,7 +76,7 @@ async def refresh_token(body: RefreshRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.get("/users/{user_id}", response_model=UserResponse)
+@router.get("/users/{user_id}", summary="Get user by ID", response_model=UserResponse)
 async def get_user(
     user_id: str,
     request: Request,
@@ -86,7 +89,7 @@ async def get_user(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/logout")
+@router.post("/logout", summary="Logout current user")
 async def logout(request: Request, _user: dict = Depends(get_current_user)):
     svc = _get_service(request)
     auth = request.headers.get("Authorization", "")
@@ -97,7 +100,7 @@ async def logout(request: Request, _user: dict = Depends(get_current_user)):
     return {"detail": "Logged out"}
 
 
-@router.post("/verify-email/send", response_model=VerificationTokenResponse)
+@router.post("/verify-email/send", summary="Send verification email", response_model=VerificationTokenResponse)
 async def send_verification(request: Request, user: dict = Depends(get_current_user)):
     svc = _get_service(request)
     try:
@@ -106,7 +109,7 @@ async def send_verification(request: Request, user: dict = Depends(get_current_u
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/verify-email/confirm", response_model=EmailVerificationResponse)
+@router.post("/verify-email/confirm", summary="Confirm email verification", response_model=EmailVerificationResponse)
 async def confirm_verification(body: EmailVerifyRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -119,7 +122,7 @@ def _get_mfa_service(request: Request) -> MFAService:
     return MFAService(request.app.state.db, request.app.state.settings)
 
 
-@router.post("/mfa/setup", response_model=MFASetupResponse)
+@router.post("/mfa/setup", summary="Setup MFA for user", response_model=MFASetupResponse)
 async def mfa_setup(request: Request, user: dict = Depends(get_current_user)):
     svc = _get_mfa_service(request)
     try:
@@ -128,7 +131,7 @@ async def mfa_setup(request: Request, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/mfa/verify")
+@router.post("/mfa/verify", summary="Verify MFA TOTP code")
 async def mfa_verify(
     body: MFAVerifyRequest,
     request: Request,
@@ -141,7 +144,7 @@ async def mfa_verify(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/mfa/challenge", response_model=TokenResponse)
+@router.post("/mfa/challenge", summary="Complete MFA challenge", response_model=TokenResponse)
 async def mfa_challenge(body: MFAChallengeRequest, request: Request):
     mfa_svc = _get_mfa_service(request)
     try:

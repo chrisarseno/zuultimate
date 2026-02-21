@@ -22,6 +22,7 @@ def _get_service(request: Request) -> SSOService:
 
 @router.post(
     "/providers",
+    summary="Create SSO provider",
     response_model=SSOProviderResponse,
     dependencies=[Depends(get_current_user)],
 )
@@ -43,6 +44,7 @@ async def create_provider(body: SSOProviderCreate, request: Request):
 
 @router.get(
     "/providers",
+    summary="List SSO providers",
     response_model=list[SSOProviderResponse],
     dependencies=[Depends(get_current_user)],
 )
@@ -54,7 +56,7 @@ async def list_providers(
     return await svc.list_providers(tenant_id=tenant_id)
 
 
-@router.get("/login/{provider_id}", response_model=SSOLoginInitResponse)
+@router.get("/login/{provider_id}", summary="Initiate SSO login", response_model=SSOLoginInitResponse)
 async def initiate_sso_login(
     provider_id: str,
     request: Request,
@@ -67,7 +69,7 @@ async def initiate_sso_login(
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/callback")
+@router.post("/callback", summary="Handle SSO callback")
 async def sso_callback(body: SSOCallbackRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -78,6 +80,7 @@ async def sso_callback(body: SSOCallbackRequest, request: Request):
 
 @router.delete(
     "/providers/{provider_id}",
+    summary="Deactivate SSO provider",
     dependencies=[Depends(get_current_user)],
 )
 async def deactivate_provider(provider_id: str, request: Request):
