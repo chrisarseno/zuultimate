@@ -1,6 +1,7 @@
 """FastAPI application factory."""
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -15,12 +16,15 @@ from zuultimate.common.config import get_settings
 from zuultimate.common.database import DatabaseManager
 from zuultimate.common.exceptions import ZuulError
 from zuultimate.common.logging import get_logger
-from zuultimate.common.middleware import RequestIDMiddleware
+from zuultimate.common.middleware import RequestIDMiddleware, RequestSizeLimitMiddleware, SecurityHeadersMiddleware
 from zuultimate.common.redis import RedisManager
 from zuultimate.common.schemas import ErrorResponse, HealthResponse
 from zuultimate.common.tasks import SessionCleanupTask
 
 _log = get_logger("zuultimate.app")
+
+_health_cache: dict = {"result": None, "ts": 0.0}
+_HEALTH_CACHE_TTL = 10  # seconds
 
 
 @asynccontextmanager
@@ -86,6 +90,8 @@ def create_app() -> FastAPI:
         allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
     )
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(RequestSizeLimitMiddleware, max_bytes=settings.max_request_bytes)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # ── Global error handlers ──
 
@@ -125,7 +131,11 @@ def create_app() -> FastAPI:
 
     @app.get("/health", response_model=HealthResponse)
     async def health():
-        """Detailed health with DB connectivity checks."""
+        """Detailed health with DB connectivity checks (cached for 10s)."""
+        now = time.monotonic()
+        if _health_cache["result"] is not None and (now - _health_cache["ts"]) < _HEALTH_CACHE_TTL:
+            return _health_cache["result"]
+
         db: DatabaseManager = app.state.db
         checks: dict[str, str] = {}
         for key in DatabaseManager.DB_KEYS:
@@ -144,13 +154,16 @@ def create_app() -> FastAPI:
         checks["redis"] = "ok" if redis_mgr.is_available else "unavailable (fallback)"
 
         all_ok = all(v == "ok" for v in checks.values() if v != "unavailable (fallback)")
-        return HealthResponse(
+        result = HealthResponse(
             status="ok" if all_ok else "degraded",
             version=settings.api_version,
             environment=settings.environment,
             timestamp=datetime.now(timezone.utc),
             checks=checks,
         )
+        _health_cache["result"] = result
+        _health_cache["ts"] = now
+        return result
 
     @app.get("/health/live")
     async def liveness():

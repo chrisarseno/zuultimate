@@ -50,7 +50,7 @@ class BackupService:
                 select(Snapshot).where(Snapshot.id == snapshot_id)
             )
             if result.scalar_one_or_none() is None:
-                raise NotFoundError(f"Snapshot '{snapshot_id}' not found")
+                raise NotFoundError("Snapshot not found")
 
             job = RestoreJob(
                 snapshot_id=snapshot_id,

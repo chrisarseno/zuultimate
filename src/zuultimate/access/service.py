@@ -111,7 +111,7 @@ class AccessService:
                 select(Role).where(Role.id == role_id)
             )
             if result.scalar_one_or_none() is None:
-                raise NotFoundError(f"Role '{role_id}' not found")
+                raise NotFoundError("Role not found")
 
             # Check duplicate assignment
             result = await session.execute(
@@ -121,9 +121,7 @@ class AccessService:
                 )
             )
             if result.scalar_one_or_none() is not None:
-                raise ValidationError(
-                    f"User '{user_id}' already assigned to role '{role_id}'"
-                )
+                raise ValidationError("User already assigned to this role")
 
             assignment = RoleAssignment(
                 role_id=role_id,

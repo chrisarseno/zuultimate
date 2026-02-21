@@ -53,8 +53,8 @@ class SessionCleanupTask:
         """Remove sessions older than max_age_hours. Returns count removed."""
         from zuultimate.identity.models import UserSession
 
-        # Use naive UTC to avoid SQLite tz-aware/naive comparison issues
-        cutoff = datetime.utcnow() - timedelta(hours=self.max_age_hours)
+        # Use naive UTC for SQLite compatibility (SQLite drops timezone info)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=self.max_age_hours)
 
         async with self.db.get_session("identity") as session:
             result = await session.execute(

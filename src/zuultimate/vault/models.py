@@ -11,8 +11,8 @@ from zuultimate.common.models import Base, TimestampMixin, generate_uuid
 class EncryptedBlob(TimestampMixin, Base):
     __tablename__ = "encrypted_blobs"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
-    owner_id: Mapped[str] = mapped_column(String(255))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    owner_id: Mapped[str] = mapped_column(String(255), index=True)
     label: Mapped[str] = mapped_column(String(255))
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary)
     nonce: Mapped[bytes] = mapped_column(LargeBinary)
@@ -27,7 +27,7 @@ class EncryptedBlob(TimestampMixin, Base):
 class VaultToken(TimestampMixin, Base):
     __tablename__ = "vault_tokens"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     original_hash: Mapped[str] = mapped_column(String(255))
     token_value: Mapped[str] = mapped_column(String(255), unique=True)
     encrypted_value: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
@@ -41,8 +41,8 @@ class VaultToken(TimestampMixin, Base):
 class UserSecret(TimestampMixin, Base):
     __tablename__ = "user_secrets"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
-    user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
@@ -54,7 +54,7 @@ class UserSecret(TimestampMixin, Base):
 class KeyVersion(TimestampMixin, Base):
     __tablename__ = "key_versions"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     version: Mapped[int] = mapped_column(Integer, unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_by: Mapped[str] = mapped_column(String(255), default="")

@@ -29,7 +29,11 @@ def _get_service(request: Request) -> IdentityService:
     return IdentityService(request.app.state.db, request.app.state.settings)
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    dependencies=[Depends(rate_limit_login)],
+)
 async def register(body: RegisterRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -56,7 +60,11 @@ async def login(body: LoginRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_login)],
+)
 async def refresh_token(body: RefreshRequest, request: Request):
     svc = _get_service(request)
     try:
@@ -82,7 +90,9 @@ async def get_user(
 async def logout(request: Request, _user: dict = Depends(get_current_user)):
     svc = _get_service(request)
     auth = request.headers.get("Authorization", "")
-    token = auth[len("Bearer "):]
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid Authorization header")
+    token = auth[7:]
     await svc.logout(token)
     return {"detail": "Logged out"}
 
@@ -140,28 +150,11 @@ async def mfa_challenge(body: MFAChallengeRequest, request: Request):
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
     # Issue full tokens after MFA verification
-    import hashlib
-
-    from sqlalchemy import select
-
-    from zuultimate.identity.models import User, UserSession
-
     id_svc = _get_service(request)
-    async with id_svc.db.get_session("identity") as session:
-        res = await session.execute(
-            select(User).where(User.id == result["user_id"], User.is_active == True)
-        )
-        user = res.scalar_one()
-        access_token, refresh_token = id_svc._make_token_pair(user)
-        user_session = UserSession(
-            user_id=user.id,
-            access_token_hash=hashlib.sha256(access_token.encode()).hexdigest(),
-            refresh_token_hash=hashlib.sha256(refresh_token.encode()).hexdigest(),
-        )
-        session.add(user_session)
+    tokens = await id_svc.issue_tokens_for_user(result["user_id"])
 
     return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
         expires_in=request.app.state.settings.access_token_expire_minutes * 60,
     )

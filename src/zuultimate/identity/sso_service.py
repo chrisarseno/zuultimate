@@ -1,8 +1,9 @@
 """SSO service -- OIDC/SAML provider management and authentication flow."""
 
 import hashlib
+import json
 import os
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from sqlalchemy import select
 
@@ -11,6 +12,7 @@ from zuultimate.common.database import DatabaseManager
 from zuultimate.common.exceptions import NotFoundError, ValidationError
 from zuultimate.common.security import create_jwt
 from zuultimate.identity.models import SSOProvider, User, UserSession
+from zuultimate.vault.crypto import decrypt_aes_gcm, derive_key, encrypt_aes_gcm
 
 _DB_KEY = "identity"
 
@@ -19,6 +21,47 @@ class SSOService:
     def __init__(self, db: DatabaseManager, settings: ZuulSettings):
         self.db = db
         self.settings = settings
+        self._enc_key, _ = derive_key(
+            settings.secret_key,
+            salt=(settings.mfa_salt + "-sso").encode(),
+        )
+
+    def _encrypt_secret(self, plaintext: str) -> str:
+        """Encrypt a client secret and return a JSON envelope."""
+        if not plaintext:
+            return ""
+        ct, nonce, tag = encrypt_aes_gcm(plaintext.encode(), self._enc_key)
+        import base64
+        return json.dumps({
+            "ct": base64.b64encode(ct).decode(),
+            "nonce": base64.b64encode(nonce).decode(),
+            "tag": base64.b64encode(tag).decode(),
+        })
+
+    def _decrypt_secret(self, stored: str) -> str:
+        """Decrypt a stored client secret envelope."""
+        if not stored:
+            return ""
+        try:
+            envelope = json.loads(stored)
+            import base64
+            ct = base64.b64decode(envelope["ct"])
+            nonce = base64.b64decode(envelope["nonce"])
+            tag = base64.b64decode(envelope["tag"])
+            return decrypt_aes_gcm(ct, self._enc_key, nonce, tag).decode()
+        except (json.JSONDecodeError, KeyError):
+            # Backwards compat: treat as plaintext
+            return stored
+
+    def _validate_redirect_uri(self, redirect_uri: str) -> None:
+        """Validate redirect_uri against allowed origins to prevent open redirects."""
+        parsed = urlparse(redirect_uri)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin not in self.settings.sso_allowed_redirect_origins:
+            raise ValidationError(
+                f"Redirect URI origin '{origin}' not in allowed list. "
+                f"Allowed: {self.settings.sso_allowed_redirect_origins}"
+            )
 
     async def create_provider(
         self,
@@ -39,7 +82,7 @@ class SSOService:
                 protocol=protocol,
                 issuer_url=issuer_url,
                 client_id=client_id,
-                client_secret_encrypted=client_secret,
+                client_secret_encrypted=self._encrypt_secret(client_secret),
                 metadata_url=metadata_url or None,
                 tenant_id=tenant_id,
             )
@@ -64,11 +107,12 @@ class SSOService:
             )
             provider = result.scalar_one_or_none()
             if provider is None:
-                raise NotFoundError(f"SSO provider '{provider_id}' not found")
+                raise NotFoundError("SSO provider not found")
         return self._to_dict(provider)
 
     async def initiate_login(self, provider_id: str, redirect_uri: str) -> dict:
         """Generate SSO login URL for the given provider."""
+        self._validate_redirect_uri(redirect_uri)
         provider = await self.get_provider(provider_id)
         state = os.urandom(16).hex()
 
@@ -159,7 +203,7 @@ class SSOService:
             )
             provider = result.scalar_one_or_none()
             if provider is None:
-                raise NotFoundError(f"SSO provider '{provider_id}' not found")
+                raise NotFoundError("SSO provider not found")
             provider.is_active = False
         return {"id": provider_id, "is_active": False}
 

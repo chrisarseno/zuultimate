@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
 
 from zuultimate.ai_security.patterns import (
     INJECTION_PATTERNS,
@@ -31,8 +30,8 @@ class Detection:
 class ScanResult:
     is_threat: bool
     threat_score: float  # 0.0 - 1.0
-    detections: List[Detection] = field(default_factory=list)
-    heuristic_flags: List[str] = field(default_factory=list)
+    detections: list[Detection] = field(default_factory=list)
+    heuristic_flags: list[str] = field(default_factory=list)
 
     @property
     def max_severity(self) -> Severity | None:
@@ -59,7 +58,7 @@ class InjectionDetector:
 
     def __init__(
         self,
-        patterns: List[DetectionPattern] | None = None,
+        patterns: list[DetectionPattern] | None = None,
         threshold: float = 0.3,
     ):
         self._patterns = list(patterns or INJECTION_PATTERNS)
@@ -72,7 +71,7 @@ class InjectionDetector:
         if not text or not text.strip():
             return ScanResult(is_threat=False, threat_score=0.0)
 
-        detections: List[Detection] = []
+        detections: list[Detection] = []
         for pat in self._patterns:
             for match in pat.pattern.finditer(text):
                 detections.append(Detection(
@@ -85,7 +84,7 @@ class InjectionDetector:
                     end=match.end(),
                 ))
 
-        heuristic_flags: List[str] = []
+        heuristic_flags: list[str] = []
         if check_entropy(text):
             heuristic_flags.append("high_entropy")
         if check_repetition_ratio(text):
@@ -110,5 +109,5 @@ class InjectionDetector:
             heuristic_flags=heuristic_flags,
         )
 
-    def scan_batch(self, texts: List[str]) -> List[ScanResult]:
+    def scan_batch(self, texts: list[str]) -> list[ScanResult]:
         return [self.scan(t) for t in texts]

@@ -9,13 +9,12 @@ from zuultimate.vault.crypto import decrypt_aes_gcm, derive_key, encrypt_aes_gcm
 from zuultimate.vault.models import UserSecret
 
 _DB_KEY = "credential"
-_VAULT_SALT = b"zuultimate-password-vault-key-v1"
 
 
 class PasswordVaultService:
     def __init__(self, db: DatabaseManager, settings: ZuulSettings):
         self.db = db
-        self._key, _ = derive_key(settings.secret_key, salt=_VAULT_SALT)
+        self._key, _ = derive_key(settings.secret_key, salt=settings.password_vault_salt.encode())
 
     async def store_secret(
         self, user_id: str, name: str, value: str, category: str = "password", notes: str = ""
@@ -75,7 +74,7 @@ class PasswordVaultService:
             )
             secret = result.scalar_one_or_none()
             if secret is None:
-                raise NotFoundError("Secret not found")
+                raise NotFoundError("Resource not found")
 
         plaintext = decrypt_aes_gcm(secret.ciphertext, self._key, secret.nonce, secret.tag)
         return {
@@ -112,7 +111,7 @@ class PasswordVaultService:
                 )
             )
             if result.scalar_one_or_none() is None:
-                raise NotFoundError("Secret not found")
+                raise NotFoundError("Resource not found")
 
             await session.execute(
                 sa_delete(UserSecret).where(UserSecret.id == secret_id)

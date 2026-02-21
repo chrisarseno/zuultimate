@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, FrozenSet, Set
 
 
 class ToolCategory(str, Enum):
@@ -20,7 +19,7 @@ class ToolCategory(str, Enum):
     SECURITY = "security"
 
 
-ALL_CATEGORIES: FrozenSet[ToolCategory] = frozenset(ToolCategory)
+ALL_CATEGORIES: frozenset[ToolCategory] = frozenset(ToolCategory)
 
 # Full-access roles
 _FULL = ALL_CATEGORIES
@@ -55,11 +54,11 @@ _STRATEGY = frozenset({
 @dataclass
 class ExecutivePermissionRule:
     agent_code: str
-    allowed_categories: FrozenSet[ToolCategory]
+    allowed_categories: frozenset[ToolCategory]
     description: str = ""
 
 
-EXECUTIVE_TOOL_PERMISSIONS: Dict[str, ExecutivePermissionRule] = {
+EXECUTIVE_TOOL_PERMISSIONS: dict[str, ExecutivePermissionRule] = {
     "CoS": ExecutivePermissionRule("CoS", _FULL, "Chief of Staff - full access for coordination"),
     "COO": ExecutivePermissionRule("COO", _FULL, "COO/Nexus - full operations access"),
     "CTO": ExecutivePermissionRule("CTO", _FULL, "CTO - full technical access"),
@@ -82,7 +81,7 @@ EXECUTIVE_TOOL_PERMISSIONS: Dict[str, ExecutivePermissionRule] = {
 class ExecutivePermissions:
     """Check whether an executive agent is permitted to use a tool category."""
 
-    def __init__(self, rules: Dict[str, ExecutivePermissionRule] | None = None):
+    def __init__(self, rules: dict[str, ExecutivePermissionRule] | None = None):
         self._rules = rules or EXECUTIVE_TOOL_PERMISSIONS
 
     def check(self, agent_code: str, tool_name: str, tool_category: str) -> bool:
@@ -95,7 +94,7 @@ class ExecutivePermissions:
             return False  # unknown category -> deny
         return cat in rule.allowed_categories
 
-    def get_allowed_categories(self, agent_code: str) -> Set[str]:
+    def get_allowed_categories(self, agent_code: str) -> set[str]:
         rule = self._rules.get(agent_code)
         if rule is None:
             return set()

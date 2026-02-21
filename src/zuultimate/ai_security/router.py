@@ -21,6 +21,7 @@ from zuultimate.ai_security.schemas import (
 )
 from zuultimate.ai_security.service import AISecurityService
 from zuultimate.common.auth import get_current_user
+from zuultimate.common.rate_limit import rate_limit_login
 from zuultimate.common.schemas import Pagination, PaginatedResponse, STANDARD_ERRORS
 
 router = APIRouter(
@@ -30,28 +31,29 @@ router = APIRouter(
     responses=STANDARD_ERRORS,
 )
 
-_service: AISecurityService | None = None
+def _get_service(request: Request) -> AISecurityService:
+    svc = getattr(request.app.state, "_ai_security_service", None)
+    if svc is None:
+        svc = AISecurityService()
+        request.app.state._ai_security_service = svc
+    return svc
 
 
-def _get_service() -> AISecurityService:
-    global _service
-    if _service is None:
-        _service = AISecurityService()
-    return _service
-
-
-@router.post("/scan", response_model=ScanResponse)
-async def scan_text(req: ScanRequest, request: Request):
-    svc = _get_service()
-    result = svc.scan(req.text, req.agent_code)
-
-    # Persist latest audit event to DB
+async def _persist_latest_audit(svc: AISecurityService, request: Request) -> None:
     if svc.audit_log.count > 0:
         latest = svc.audit_log.query(limit=1)
         if latest:
             db = getattr(request.app.state, "db", None)
             if db:
                 await persist_event(db, latest[-1])
+
+
+@router.post("/scan", response_model=ScanResponse)
+async def scan_text(req: ScanRequest, request: Request):
+    svc = _get_service(request)
+    result = svc.scan(req.text, req.agent_code)
+
+    await _persist_latest_audit(svc, request)
 
     return ScanResponse(
         is_threat=result.is_threat,
@@ -72,16 +74,10 @@ async def scan_text(req: ScanRequest, request: Request):
 
 @router.post("/guard/check", response_model=GuardResponse)
 async def guard_check(req: GuardRequest, request: Request):
-    svc = _get_service()
+    svc = _get_service(request)
     decision = await svc.guard_check(req.tool_name, req.agent_code, req.parameters, req.tool_category)
 
-    # Persist latest audit event to DB
-    if svc.audit_log.count > 0:
-        latest = svc.audit_log.query(limit=1)
-        if latest:
-            db = getattr(request.app.state, "db", None)
-            if db:
-                await persist_event(db, latest[-1])
+    await _persist_latest_audit(svc, request)
 
     return GuardResponse(
         allowed=decision.allowed,
@@ -91,9 +87,13 @@ async def guard_check(req: GuardRequest, request: Request):
     )
 
 
-@router.post("/redteam/execute", response_model=RedTeamResponse)
-async def red_team_execute(req: RedTeamRequest):
-    svc = _get_service()
+@router.post(
+    "/redteam/execute",
+    response_model=RedTeamResponse,
+    dependencies=[Depends(rate_limit_login)],
+)
+async def red_team_execute(req: RedTeamRequest, request: Request):
+    svc = _get_service(request)
     try:
         result = await svc.red_team_execute(req.passphrase, req.categories, req.custom_payloads)
     except PermissionError:
@@ -148,7 +148,7 @@ async def query_audit(
         }
 
     # Fallback to in-memory
-    svc = _get_service()
+    svc = _get_service(request)
     events = svc.audit_log.query(evt_type, severity, agent_code, limit=1000)
     all_items = [
         AuditEventItem(
@@ -206,7 +206,7 @@ async def retention_archive(
     }
 
 
-@router.post("/retention/purge")
+@router.post("/retention/purge", dependencies=[Depends(rate_limit_login)])
 async def retention_purge(
     request: Request,
     retention_days: int = Query(default=90, ge=1, le=3650),

@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
 
 
 class ThreatCategory(str, Enum):
@@ -37,7 +36,7 @@ def _compile(pat: str, flags: int = re.IGNORECASE) -> re.Pattern:
 
 
 # ── Direct instruction override ──────────────────────────────────────────────
-INJECTION_PATTERNS: List[DetectionPattern] = [
+INJECTION_PATTERNS: list[DetectionPattern] = [
     DetectionPattern(
         name="ignore_previous",
         pattern=_compile(r"ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|prompts?|rules?)"),

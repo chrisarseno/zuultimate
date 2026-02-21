@@ -35,7 +35,7 @@ class CRMService:
                 )
             )
             if result.scalar_one_or_none() is None:
-                raise NotFoundError(f"Active CRM config '{config_id}' not found")
+                raise NotFoundError("Active CRM config not found")
 
             job = SyncJob(config_id=config_id, status="pending")
             session.add(job)
@@ -54,7 +54,7 @@ class CRMService:
             )
             job = result.scalar_one_or_none()
             if job is None:
-                raise NotFoundError(f"Sync job '{job_id}' not found")
+                raise NotFoundError("Sync job not found")
         return {
             "id": job.id,
             "config_id": job.config_id,

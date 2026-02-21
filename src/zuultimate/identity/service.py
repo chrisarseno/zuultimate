@@ -41,6 +41,30 @@ class IdentityService:
         )
         return access, refresh
 
+    async def issue_tokens_for_user(self, user_id: str) -> dict:
+        """Look up an active user by ID and issue a new token pair with session."""
+        async with self.db.get_session(_DB_KEY) as session:
+            result = await session.execute(
+                select(User).where(User.id == user_id, User.is_active == True)
+            )
+            user = result.scalar_one_or_none()
+            if user is None:
+                raise NotFoundError("User not found")
+
+            access_token, refresh_token = self._make_token_pair(user)
+
+            user_session = UserSession(
+                user_id=user.id,
+                access_token_hash=hashlib.sha256(access_token.encode()).hexdigest(),
+                refresh_token_hash=hashlib.sha256(refresh_token.encode()).hexdigest(),
+            )
+            session.add(user_session)
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+        }
+
     async def register(
         self, email: str, username: str, password: str, display_name: str = ""
     ) -> dict:
@@ -135,7 +159,7 @@ class IdentityService:
             )
             user = result.scalar_one_or_none()
             if user is None:
-                raise NotFoundError(f"User '{user_id}' not found")
+                raise NotFoundError("User not found")
 
         return UserResponse(
             id=user.id,
@@ -217,7 +241,7 @@ class IdentityService:
             )
             user = result.scalar_one_or_none()
             if user is None:
-                raise NotFoundError(f"User '{user_id}' not found")
+                raise NotFoundError("User not found")
             if user.is_verified:
                 raise ValidationError("Email already verified")
 

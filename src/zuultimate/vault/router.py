@@ -12,6 +12,7 @@ from zuultimate.vault.schemas import (
     DetokenizeResponse,
     EncryptRequest,
     EncryptResponse,
+    StoreSecretRequest,
     TokenizeRequest,
     TokenizeResponse,
 )
@@ -93,17 +94,17 @@ def _get_pw_vault(request: Request) -> PasswordVaultService:
 @router.post("/secrets")
 async def store_secret(
     request: Request,
-    body: dict,
+    body: StoreSecretRequest,
     user: dict = Depends(get_current_user),
 ):
     svc = _get_pw_vault(request)
     try:
         return await svc.store_secret(
             user_id=user["user_id"],
-            name=body.get("name", ""),
-            value=body.get("value", ""),
-            category=body.get("category", "password"),
-            notes=body.get("notes", ""),
+            name=body.name,
+            value=body.value,
+            category=body.category,
+            notes=body.notes,
         )
     except ZuulError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

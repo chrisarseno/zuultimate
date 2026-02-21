@@ -1,7 +1,7 @@
 """Audit log retention — TTL-based cleanup and archival."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete as sa_delete, func, select
 
@@ -20,7 +20,8 @@ class AuditRetentionService:
 
     async def get_stats(self) -> dict:
         """Return audit log statistics."""
-        cutoff = datetime.utcnow() - timedelta(days=self.retention_days)
+        # Use naive UTC for SQLite compatibility (SQLite drops timezone info)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=self.retention_days)
 
         async with self.db.get_session(_DB_KEY) as session:
             total = await session.execute(
@@ -46,7 +47,7 @@ class AuditRetentionService:
         for persisting the archive (e.g. to S3/file). Events are NOT deleted
         by this method — use ``purge_expired()`` after successful archival.
         """
-        cutoff = datetime.utcnow() - timedelta(days=self.retention_days)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=self.retention_days)
 
         async with self.db.get_session(_DB_KEY) as session:
             result = await session.execute(
@@ -78,7 +79,7 @@ class AuditRetentionService:
 
     async def purge_expired(self) -> dict:
         """Delete events older than the retention period."""
-        cutoff = datetime.utcnow() - timedelta(days=self.retention_days)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=self.retention_days)
 
         async with self.db.get_session(_DB_KEY) as session:
             result = await session.execute(

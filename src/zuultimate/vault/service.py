@@ -17,7 +17,7 @@ _DB_KEY = "credential"
 def _derive_vault_key(settings: ZuulSettings) -> bytes:
     """Derive AES key using a deployment-unique salt from secret_key."""
     salt = hashlib.sha256(
-        b"zuultimate-vault-v2-" + settings.secret_key.encode()
+        settings.vault_salt.encode() + b"-" + settings.secret_key.encode()
     ).digest()[:16]
     key, _ = derive_key(settings.secret_key, salt=salt)
     return key
@@ -51,7 +51,7 @@ class VaultService:
             )
             blob = result.scalar_one_or_none()
             if blob is None:
-                raise NotFoundError(f"Blob '{blob_id}' not found")
+                raise NotFoundError("Resource not found")
             plaintext = decrypt_aes_gcm(blob.ciphertext, self._key, blob.nonce, blob.tag)
         return {"plaintext": plaintext.decode()}
 
@@ -91,7 +91,7 @@ class VaultService:
             )
             blob = result.scalar_one_or_none()
             if blob is None:
-                raise NotFoundError(f"Blob '{blob_id}' not found")
+                raise NotFoundError("Resource not found")
 
             # Decrypt with current nonce/tag, re-encrypt with fresh nonce
             plaintext = decrypt_aes_gcm(blob.ciphertext, self._key, blob.nonce, blob.tag)
@@ -136,7 +136,7 @@ class VaultService:
             )
             vt = result.scalar_one_or_none()
             if vt is None:
-                raise NotFoundError(f"Token '{token}' not found")
+                raise NotFoundError("Resource not found")
             if vt.encrypted_value is None:
                 raise ValidationError("Token has no encrypted value for detokenization")
             plaintext = decrypt_aes_gcm(

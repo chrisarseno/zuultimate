@@ -114,3 +114,31 @@ async def test_weak_password_rejected(integration_client):
         json={"email": "pw@test.com", "username": "user2", "password": "abcdefgh"},
     )
     assert resp.status_code == 422  # no digit
+
+
+# ── MFA integration tests ──
+
+
+async def test_mfa_setup_requires_auth(integration_client):
+    """POST /v1/identity/mfa/setup without token returns 401."""
+    resp = await integration_client.post("/v1/identity/mfa/setup")
+    assert resp.status_code in (401, 403)
+
+
+async def test_mfa_verify_requires_auth(integration_client):
+    """POST /v1/identity/mfa/verify without token returns 401."""
+    resp = await integration_client.post(
+        "/v1/identity/mfa/verify",
+        json={"code": "123456"},
+    )
+    assert resp.status_code in (401, 403)
+
+
+async def test_mfa_challenge_invalid_token(integration_client):
+    """POST /v1/identity/mfa/challenge with bad mfa_token returns 401/422."""
+    resp = await integration_client.post(
+        "/v1/identity/mfa/challenge",
+        json={"mfa_token": "invalid-garbage-token", "code": "123456"},
+    )
+    # Bad JWT -> AuthenticationError (401) or pydantic validation (422)
+    assert resp.status_code in (401, 422)

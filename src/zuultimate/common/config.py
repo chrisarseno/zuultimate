@@ -1,15 +1,26 @@
 """Zuultimate configuration via pydantic-settings."""
 
+import warnings
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_DEFAULT_KEY = "insecure-dev-key-change-me"
 
 
 class ZuulSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ZUUL_")
 
     environment: str = "development"
-    secret_key: str = "insecure-dev-key-change-me"
+    secret_key: str = _INSECURE_DEFAULT_KEY
+
+    # Configurable crypto salts (override per deployment via env vars)
+    vault_salt: str = "zuultimate-vault-v2"
+    mfa_salt: str = "zuultimate-mfa-secret"
+    password_vault_salt: str = "zuultimate-pw-vault"
+
+    # SSO allowed redirect URI patterns
+    sso_allowed_redirect_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # Database URLs
     identity_db_url: str = "sqlite+aiosqlite:///./data/identity.db"
@@ -42,6 +53,24 @@ class ZuulSettings(BaseSettings):
     login_rate_window: int = 300  # seconds
 
 
+    def validate_for_production(self) -> None:
+        """Raise if insecure defaults are used in non-development environments."""
+        if self.environment != "development" and self.secret_key == _INSECURE_DEFAULT_KEY:
+            raise RuntimeError(
+                "ZUUL_SECRET_KEY must be set to a secure value in "
+                f"'{self.environment}' environment. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+        if self.secret_key == _INSECURE_DEFAULT_KEY:
+            warnings.warn(
+                "Using default insecure secret key — set ZUUL_SECRET_KEY for production",
+                UserWarning,
+                stacklevel=2,
+            )
+
+
 @lru_cache
 def get_settings() -> ZuulSettings:
-    return ZuulSettings()
+    settings = ZuulSettings()
+    settings.validate_for_production()
+    return settings

@@ -14,14 +14,13 @@ from zuultimate.identity.models import MFADevice, User
 from zuultimate.vault.crypto import decrypt_aes_gcm, derive_key, encrypt_aes_gcm
 
 _DB_KEY = "identity"
-_MFA_KEY_SALT = b"zuultimate-mfa-secret-encryption"
 
 
 class MFAService:
     def __init__(self, db: DatabaseManager, settings: ZuulSettings):
         self.db = db
         self.settings = settings
-        self._key, _ = derive_key(settings.secret_key, salt=_MFA_KEY_SALT)
+        self._key, _ = derive_key(settings.secret_key, salt=settings.mfa_salt.encode())
 
     def _encrypt_secret(self, secret: str) -> str:
         """Encrypt TOTP secret and return base64-encoded JSON envelope."""

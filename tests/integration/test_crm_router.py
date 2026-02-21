@@ -71,3 +71,45 @@ async def test_crm_requires_auth(integration_client):
         "/v1/crm/configs", json={"provider": "test"},
     )
     assert resp.status_code in (401, 403)
+
+
+async def test_list_adapters(integration_client):
+    headers = await get_auth_headers(integration_client, "crmuser_adapt1")
+    resp = await integration_client.get("/v1/crm/adapters", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "adapters" in data
+    adapters = data["adapters"]
+    assert isinstance(adapters, list)
+    assert "salesforce" in adapters
+    assert "hubspot" in adapters
+    assert "generic" in adapters
+
+
+async def test_test_adapter(integration_client):
+    headers = await get_auth_headers(integration_client, "crmuser_adapt2")
+    resp = await integration_client.post(
+        "/v1/crm/adapters/salesforce/test", headers=headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "connected" in data
+    assert data["connected"] is True
+    assert data["provider"] == "salesforce"
+
+
+async def test_fetch_contacts(integration_client):
+    headers = await get_auth_headers(integration_client, "crmuser_adapt3")
+    resp = await integration_client.post(
+        "/v1/crm/adapters/hubspot/fetch", headers=headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "contacts" in data
+    assert "count" in data
+    assert isinstance(data["contacts"], list)
+    assert data["count"] > 0
+    # Verify contact structure from HubSpot adapter
+    contact = data["contacts"][0]
+    assert "vid" in contact
+    assert "email" in contact

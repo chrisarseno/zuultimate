@@ -50,7 +50,7 @@ class POSService:
                 )
             )
             if result.scalar_one_or_none() is None:
-                raise NotFoundError(f"Active terminal '{terminal_id}' not found")
+                raise NotFoundError("Active terminal not found")
 
             reference = f"TXN-{os.urandom(8).hex()}"
             txn = Transaction(
@@ -175,7 +175,7 @@ class POSService:
                 select(Terminal).where(Terminal.id == terminal_id)
             )
             if result.scalar_one_or_none() is None:
-                raise NotFoundError(f"Terminal '{terminal_id}' not found")
+                raise NotFoundError("Terminal not found")
 
             # Get completed unsettled transactions
             result = await session.execute(
@@ -224,7 +224,7 @@ class POSService:
             )
             batch = result.scalar_one_or_none()
             if batch is None:
-                raise NotFoundError(f"Settlement '{settlement_id}' not found")
+                raise NotFoundError("Settlement not found")
 
         return {
             "id": batch.id,

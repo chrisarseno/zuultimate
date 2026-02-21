@@ -20,7 +20,7 @@ class TenantService:
                 select(Tenant).where(Tenant.slug == slug)
             )
             if existing.scalar_one_or_none() is not None:
-                raise ValidationError(f"Tenant slug '{slug}' already exists")
+                raise ValidationError("Tenant slug already exists")
 
             tenant = Tenant(name=name, slug=slug)
             session.add(tenant)
@@ -52,7 +52,7 @@ class TenantService:
             )
             tenant = result.scalar_one_or_none()
             if tenant is None:
-                raise NotFoundError(f"Tenant '{tenant_id}' not found")
+                raise NotFoundError("Tenant not found")
 
         return TenantResponse(
             id=tenant.id, name=tenant.name, slug=tenant.slug, is_active=tenant.is_active
@@ -65,7 +65,7 @@ class TenantService:
             )
             tenant = result.scalar_one_or_none()
             if tenant is None:
-                raise NotFoundError(f"Tenant '{tenant_id}' not found")
+                raise NotFoundError("Tenant not found")
             tenant.is_active = False
             await session.flush()
 
