@@ -1,11 +1,12 @@
 """CRM provider adapter framework — pluggable sync backends."""
 
-import logging
 from abc import ABC, abstractmethod
 
 import httpx
 
-logger = logging.getLogger(__name__)
+from zuultimate.common.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class CRMAdapter(ABC):

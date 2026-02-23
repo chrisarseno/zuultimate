@@ -31,15 +31,6 @@ class ValidationError(ZuulError):
         super().__init__(message, code="VALIDATION_ERROR", status_code=422)
 
 
-class NotImplementedModuleError(ZuulError):
-    def __init__(self, module: str = "unknown"):
-        super().__init__(
-            f"Module '{module}' is not yet implemented",
-            code="NOT_IMPLEMENTED",
-            status_code=501,
-        )
-
-
 class SecurityThreatError(ZuulError):
     def __init__(self, message: str = "Security threat detected"):
         super().__init__(message, code="SECURITY_THREAT", status_code=403)

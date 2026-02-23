@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import logging
 import os
 from urllib.parse import urlencode, urlparse
 
@@ -12,11 +11,12 @@ from sqlalchemy import select
 from zuultimate.common.config import ZuulSettings
 from zuultimate.common.database import DatabaseManager
 from zuultimate.common.exceptions import NotFoundError, ValidationError
+from zuultimate.common.logging import get_logger
 from zuultimate.common.security import create_jwt
 from zuultimate.identity.models import SSOProvider, User, UserSession
 from zuultimate.vault.crypto import decrypt_aes_gcm, derive_key, encrypt_aes_gcm
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _DB_KEY = "identity"
 
