@@ -11,6 +11,7 @@ from sqlalchemy import select
 from zuultimate.common.config import ZuulSettings
 from zuultimate.common.database import DatabaseManager
 from zuultimate.common.exceptions import NotFoundError, ValidationError
+from zuultimate.common.licensing import license_gate
 from zuultimate.common.logging import get_logger
 from zuultimate.common.security import create_jwt
 from zuultimate.identity.models import SSOProvider, User, UserSession
@@ -23,6 +24,7 @@ _DB_KEY = "identity"
 
 class SSOService:
     def __init__(self, db: DatabaseManager, settings: ZuulSettings):
+        license_gate.gate("zul.sso.oidc", "SSO / OIDC")
         self.db = db
         self.settings = settings
         self._enc_key, _ = derive_key(

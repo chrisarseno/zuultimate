@@ -8,6 +8,7 @@ from typing import List
 from zuultimate.ai_security.audit_log import SecurityAuditLog, SecurityEvent, SecurityEventType
 from zuultimate.ai_security.injection_detector import InjectionDetector, ScanResult
 from zuultimate.ai_security.patterns import ThreatCategory
+from zuultimate.common.licensing import license_gate
 from zuultimate.common.security import hash_password, verify_password
 
 
@@ -98,6 +99,7 @@ class RedTeamTool:
         audit_log: SecurityAuditLog | None = None,
         passphrase_hash: str | None = None,
     ):
+        license_gate.gate("zul.redteam.tool", "Red Team Tool")
         self.detector = detector or InjectionDetector()
         self.audit_log = audit_log or SecurityAuditLog()
         self._passphrase_hash = passphrase_hash

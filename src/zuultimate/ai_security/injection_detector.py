@@ -13,6 +13,7 @@ from zuultimate.ai_security.patterns import (
     check_length_anomaly,
     check_repetition_ratio,
 )
+from zuultimate.common.licensing import license_gate
 
 
 @dataclass
@@ -61,7 +62,10 @@ class InjectionDetector:
         patterns: list[DetectionPattern] | None = None,
         threshold: float = 0.3,
     ):
-        self._patterns = list(patterns or INJECTION_PATTERNS)
+        if patterns is None and not license_gate.check_feature("zul.injection.patterns"):
+            self._patterns = []  # Community tier: no bundled patterns
+        else:
+            self._patterns = list(patterns or INJECTION_PATTERNS)
         self._threshold = threshold
 
     def add_pattern(self, pattern: DetectionPattern) -> None:

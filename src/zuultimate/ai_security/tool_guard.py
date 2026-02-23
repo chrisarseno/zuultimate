@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable
 from zuultimate.ai_security.audit_log import SecurityAuditLog
 from zuultimate.ai_security.injection_detector import InjectionDetector, ScanResult
 from zuultimate.ai_security.permissions import ExecutivePermissions
+from zuultimate.common.licensing import license_gate
 
 
 @dataclass
@@ -27,6 +28,7 @@ class ToolGuard:
         permissions: ExecutivePermissions | None = None,
         audit_log: SecurityAuditLog | None = None,
     ):
+        license_gate.gate("zul.toolguard.pipeline", "ToolGuard Pipeline")
         self.detector = detector or InjectionDetector()
         self.permissions = permissions or ExecutivePermissions()
         self.audit_log = audit_log or SecurityAuditLog()

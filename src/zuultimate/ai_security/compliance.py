@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 
 from zuultimate.ai_security.models import SecurityEventModel
 from zuultimate.common.database import DatabaseManager
+from zuultimate.common.licensing import license_gate
 
 _DB_KEY = "audit"
 
@@ -21,6 +22,7 @@ class ComplianceReporter:
         end_date: datetime | None = None,
     ) -> dict:
         """Generate a comprehensive compliance report from audit data."""
+        license_gate.gate("zul.compliance.reporter", "Compliance Reporting")
         async with self.db.get_session(_DB_KEY) as session:
             query = select(SecurityEventModel)
             if start_date:

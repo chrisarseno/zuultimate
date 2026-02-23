@@ -23,6 +23,7 @@ from starlette.responses import JSONResponse, Response
 from zuultimate.ai_security.injection_detector import InjectionDetector
 from zuultimate.ai_security.audit_log import SecurityAuditLog
 from zuultimate.common.config import get_settings
+from zuultimate.common.licensing import license_gate
 from zuultimate.common.logging import get_logger
 
 _log = get_logger("zuultimate.ai_gateway")
@@ -36,6 +37,7 @@ class SecurityGatewayMiddleware(BaseHTTPMiddleware):
     """
 
     def __init__(self, app, threshold: float | None = None, scan_response: bool = False):
+        license_gate.gate("zul.gateway.middleware", "AI Security Gateway")
         super().__init__(app)
         settings = get_settings()
         self.threshold = threshold or settings.threat_score_threshold
