@@ -9,7 +9,7 @@ description = "Enterprise identity, vault, zero-trust, and AI security platform"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.11"
-authors = [{ name = "Chris Arseno" }]
+authors = [{ name = "Chris Arsenault" }]
 keywords = ["security", "ai-security", "zero-trust", "vault", "identity"]
 classifiers = [
     "Development Status :: 4 - Beta",
