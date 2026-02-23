@@ -1,6 +1,12 @@
 """Integration tests for SSO router endpoints."""
 
+from unittest.mock import AsyncMock, patch
+
+import httpx
+
 from tests.integration.conftest import get_auth_headers
+
+_FAKE_REQUEST = httpx.Request("POST", "https://test.com/token")
 
 
 async def test_create_and_list_providers(integration_client):
@@ -58,10 +64,28 @@ async def test_sso_callback(integration_client):
     )
     provider_id = resp.json()["id"]
 
-    resp = await integration_client.post(
-        "/v1/sso/callback",
-        json={"provider_id": provider_id, "code": "authcode123", "state": "abc"},
+    token_response = httpx.Response(
+        200,
+        json={
+            "access_token": "idp-access-token",
+            "token_type": "Bearer",
+            "email": "sso-user@auth0.com",
+            "preferred_username": "sso-user",
+            "name": "SSO User",
+        },
+        request=_FAKE_REQUEST,
     )
+    with patch("zuultimate.identity.sso_service.httpx.AsyncClient") as MockClient:
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=token_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_client
+
+        resp = await integration_client.post(
+            "/v1/sso/callback",
+            json={"provider_id": provider_id, "code": "authcode123", "state": "abc"},
+        )
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data

@@ -2,9 +2,11 @@
 
 import hashlib
 import json
+import logging
 import os
 from urllib.parse import urlencode, urlparse
 
+import httpx
 from sqlalchemy import select
 
 from zuultimate.common.config import ZuulSettings
@@ -13,6 +15,8 @@ from zuultimate.common.exceptions import NotFoundError, ValidationError
 from zuultimate.common.security import create_jwt
 from zuultimate.identity.models import SSOProvider, User, UserSession
 from zuultimate.vault.crypto import decrypt_aes_gcm, derive_key, encrypt_aes_gcm
+
+logger = logging.getLogger(__name__)
 
 _DB_KEY = "identity"
 
@@ -135,34 +139,121 @@ class SSOService:
             "provider_id": provider_id,
         }
 
+    async def _exchange_code_for_tokens(
+        self, provider: dict, code: str, redirect_uri: str = "",
+    ) -> dict:
+        """Exchange an authorization code at the provider's token endpoint.
+
+        Returns the parsed JSON body from the IdP (id_token, access_token, etc.).
+        Raises ``ValidationError`` on HTTP or protocol failures.
+        """
+        client_secret = ""
+        async with self.db.get_session(_DB_KEY) as session:
+            result = await session.execute(
+                select(SSOProvider).where(SSOProvider.id == provider["id"])
+            )
+            prov_obj = result.scalar_one_or_none()
+            if prov_obj and prov_obj.client_secret_encrypted:
+                client_secret = self._decrypt_secret(prov_obj.client_secret_encrypted)
+
+        token_url = f"{provider['issuer_url']}/token"
+        payload = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": provider["client_id"],
+            "client_secret": client_secret,
+        }
+        if redirect_uri:
+            payload["redirect_uri"] = redirect_uri
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                resp = await client.post(token_url, data=payload)
+                resp.raise_for_status()
+                return resp.json()
+            except httpx.HTTPStatusError as exc:
+                logger.error("Token exchange failed (%s): %s", exc.response.status_code, exc.response.text)
+                raise ValidationError(
+                    f"SSO token exchange failed: HTTP {exc.response.status_code}"
+                ) from exc
+            except httpx.RequestError as exc:
+                logger.error("Token exchange network error: %s", exc)
+                raise ValidationError(
+                    f"SSO token exchange network error: {exc}"
+                ) from exc
+
+    @staticmethod
+    def _extract_user_info(token_body: dict) -> tuple[str, str, str]:
+        """Extract (email, username, display_name) from IdP token response.
+
+        Supports:
+        - ``id_token`` containing a JWT with email/name claims (OIDC standard)
+        - Top-level ``email`` / ``user`` keys (simplified providers)
+
+        Returns (email, username, display_name). Falls back to empty strings
+        when claims are missing.
+        """
+        email = token_body.get("email", "")
+        username = token_body.get("preferred_username", "") or token_body.get("user", "")
+        display_name = token_body.get("name", "")
+
+        # Try to decode id_token JWT payload (unverified — the server already
+        # validated the code exchange, so the id_token is authentic).
+        id_token = token_body.get("id_token", "")
+        if id_token:
+            try:
+                import base64
+                # JWT: header.payload.signature — decode payload
+                parts = id_token.split(".")
+                if len(parts) >= 2:
+                    padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                    claims = json.loads(base64.urlsafe_b64decode(padded))
+                    email = email or claims.get("email", "")
+                    username = username or claims.get("preferred_username", "") or claims.get("sub", "")
+                    display_name = display_name or claims.get("name", "")
+            except Exception:
+                pass  # Graceful — use top-level fields
+
+        return email, username, display_name
+
     async def handle_callback(
-        self, provider_id: str, code: str, state: str
+        self, provider_id: str, code: str, state: str,
+        redirect_uri: str = "",
     ) -> dict:
         """Handle the SSO callback — exchange code for tokens.
 
-        In production this would call the IdP's token endpoint. Here we
-        validate the provider exists and simulate a successful exchange by
-        creating/finding a user and issuing JWT tokens.
+        Performs a real OIDC authorization-code exchange against the provider's
+        token endpoint, extracts user info from the response, and issues
+        Zuultimate JWT tokens.
         """
         provider = await self.get_provider(provider_id)
 
-        # Simulated exchange: derive a deterministic "email" from the code
-        # In production: POST to provider's token_endpoint with code + client_secret
-        simulated_email = f"sso-{code[:8]}@{provider['name'].lower().replace(' ', '')}.com"
-        simulated_username = f"sso_{code[:8]}"
+        # Exchange authorization code with the IdP
+        token_body = await self._exchange_code_for_tokens(provider, code, redirect_uri)
+        email, username, display_name = self._extract_user_info(token_body)
+
+        if not email:
+            raise ValidationError(
+                "SSO provider did not return an email claim. "
+                "Ensure 'email' scope is requested."
+            )
+        if not username:
+            username = email.split("@")[0]
+        if not display_name:
+            display_name = username
 
         async with self.db.get_session(_DB_KEY) as session:
             # Find or create user
             result = await session.execute(
-                select(User).where(User.email == simulated_email)
+                select(User).where(User.email == email)
             )
             user = result.scalar_one_or_none()
 
             if user is None:
                 user = User(
-                    email=simulated_email,
-                    username=simulated_username,
-                    display_name=simulated_username,
+                    email=email,
+                    username=username,
+                    display_name=display_name,
                     is_verified=True,  # SSO users are auto-verified
                     tenant_id=provider.get("tenant_id"),
                 )

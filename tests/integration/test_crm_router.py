@@ -1,6 +1,12 @@
 """Integration tests for CRM router endpoints."""
 
+from unittest.mock import AsyncMock, patch
+
+import httpx
+
 from tests.integration.conftest import get_auth_headers
+
+_FAKE_REQUEST = httpx.Request("GET", "https://test.com")
 
 
 async def test_config_and_sync_flow(integration_client):
@@ -88,9 +94,19 @@ async def test_list_adapters(integration_client):
 
 async def test_test_adapter(integration_client):
     headers = await get_auth_headers(integration_client, "crmuser_adapt2")
-    resp = await integration_client.post(
-        "/v1/crm/adapters/salesforce/test", headers=headers,
+    sf_response = httpx.Response(
+        200, json={}, request=_FAKE_REQUEST,
     )
+    with patch("zuultimate.crm.adapters.httpx.AsyncClient") as MockClient:
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=sf_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_client
+
+        resp = await integration_client.post(
+            "/v1/crm/adapters/salesforce/test", headers=headers,
+        )
     assert resp.status_code == 200
     data = resp.json()
     assert "connected" in data
@@ -100,9 +116,26 @@ async def test_test_adapter(integration_client):
 
 async def test_fetch_contacts(integration_client):
     headers = await get_auth_headers(integration_client, "crmuser_adapt3")
-    resp = await integration_client.post(
-        "/v1/crm/adapters/hubspot/fetch", headers=headers,
+    hs_response = httpx.Response(
+        200,
+        json={
+            "results": [
+                {"id": "101", "properties": {"firstname": "Alice", "lastname": "B", "email": "alice@hs.com"}},
+                {"id": "102", "properties": {"firstname": "Bob", "lastname": "C", "email": "bob@hs.com"}},
+            ],
+        },
+        request=_FAKE_REQUEST,
     )
+    with patch("zuultimate.crm.adapters.httpx.AsyncClient") as MockClient:
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=hs_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        MockClient.return_value = mock_client
+
+        resp = await integration_client.post(
+            "/v1/crm/adapters/hubspot/fetch", headers=headers,
+        )
     assert resp.status_code == 200
     data = resp.json()
     assert "contacts" in data
