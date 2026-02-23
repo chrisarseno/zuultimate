@@ -6,11 +6,17 @@ from typing import Any, Dict
 
 try:
     from csuite.core.plugins import Plugin, hook
-except ImportError as _exc:
-    raise ImportError(
-        "csuite_plugin requires the 'csuite' package. "
-        "Install it or use zuultimate without the C-Suite integration."
-    ) from _exc
+except ImportError:
+    # Degrade gracefully when csuite is not installed.
+    # The __init__.py already guards the public export, so this module
+    # simply becomes non-functional rather than crashing the process.
+    Plugin = object  # type: ignore[assignment,misc]
+
+    def hook(*args, **kwargs):  # type: ignore[misc]  # noqa: E302
+        """No-op decorator when csuite is not available."""
+        def _decorator(fn):
+            return fn
+        return _decorator
 
 from zuultimate.ai_security.service import AISecurityService
 

@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from csuite.tools.base import BaseTool, ToolCategory, ToolMetadata, ToolParameter, ToolResult
+try:
+    from csuite.tools.base import BaseTool, ToolCategory, ToolMetadata, ToolParameter, ToolResult
+except ImportError:
+    # Degrade gracefully when csuite is not installed.
+    BaseTool = object  # type: ignore[assignment,misc]
+    ToolCategory = None  # type: ignore[assignment,misc]
+    ToolMetadata = None  # type: ignore[assignment,misc]
+    ToolParameter = None  # type: ignore[assignment,misc]
+    ToolResult = None  # type: ignore[assignment,misc]
 
 
 class ZuulGuardTool(BaseTool):

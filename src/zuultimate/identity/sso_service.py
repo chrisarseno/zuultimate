@@ -130,7 +130,9 @@ class SSOService:
             }
             redirect_url = f"{provider['issuer_url']}/authorize?{urlencode(params)}"
         else:
-            # SAML: redirect to IdP SSO URL
+            # SAML: placeholder for future implementation.
+            # A production SAML flow requires building a real AuthnRequest XML
+            # document (deflated, base64-encoded) and proper signature handling.
             redirect_url = f"{provider['issuer_url']}/sso?SAMLRequest=placeholder&RelayState={state}"
 
         return {
