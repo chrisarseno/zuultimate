@@ -7,15 +7,16 @@ import pytest
 from zuultimate.common.licensing import PRICING_URL, ZuulLicenseGate
 
 
-class TestAgplMode:
-    def test_no_key_allows_all(self):
+class TestCommunityMode:
+    def test_no_key_blocks_all(self):
         gate = ZuulLicenseGate(license_key="")
-        assert gate.is_agpl_mode is True
-        assert gate.check_feature("zul.gateway.middleware") is True
+        assert gate.is_community_mode is True
+        assert gate.check_feature("zul.gateway.middleware") is False
 
-    def test_no_key_gate_does_not_raise(self):
+    def test_no_key_gate_raises(self):
         gate = ZuulLicenseGate(license_key="")
-        gate.gate("zul.gateway.middleware")
+        with pytest.raises(PermissionError):
+            gate.gate("zul.gateway.middleware")
 
 
 class TestWithValidKey:
@@ -67,18 +68,18 @@ class TestWithValidKey:
         assert my_func() == "ok"
 
 
-class TestFailOpen:
-    def test_connection_error_allows(self):
+class TestFailClosed:
+    def test_connection_error_blocks(self):
         gate = ZuulLicenseGate(license_key="TEST-KEY")
         mock_client = MagicMock()
         mock_client.validate.side_effect = Exception("connection refused")
         gate._client = mock_client
-        assert gate.check_feature("zul.gateway.middleware") is True
+        assert gate.check_feature("zul.gateway.middleware") is False
 
-    def test_import_error_allows(self):
+    def test_import_error_blocks(self):
         gate = ZuulLicenseGate(license_key="TEST-KEY")
         with patch.object(gate, '_get_client', return_value=None):
-            assert gate.check_feature("zul.gateway.middleware") is True
+            assert gate.check_feature("zul.gateway.middleware") is False
 
 
 class TestCaching:

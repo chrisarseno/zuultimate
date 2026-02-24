@@ -1,10 +1,23 @@
 """Shared test fixtures for Zuultimate."""
 
 import pytest
+from unittest.mock import patch
 from httpx import ASGITransport, AsyncClient
 
 from zuultimate.common.config import ZuulSettings
 from zuultimate.common.database import DatabaseManager
+
+
+# =============================================================================
+# License Gate — allow all features during tests
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _unlock_license_gate():
+    """Patch the module-level license_gate singleton so all features are allowed in tests."""
+    with patch("zuultimate.common.licensing.license_gate.check_feature", return_value=True):
+        yield
 
 _IN_MEMORY = "sqlite+aiosqlite://"
 

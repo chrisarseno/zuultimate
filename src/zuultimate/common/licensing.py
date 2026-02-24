@@ -1,10 +1,10 @@
 """ZuulLicenseGate — feature entitlement checker for zuultimate.
 
 Same enforcement philosophy as ag3ntwerk LicenseGate:
-- No VINZY_LICENSE_KEY → allow all (AGPL mode)
+- No VINZY_LICENSE_KEY → community only (gated features blocked)
 - Key + entitled → allow
 - Key + NOT entitled → block
-- Server unreachable → fail-open
+- Server unreachable → community only (fail-closed for gated features)
 """
 
 import functools
@@ -50,7 +50,7 @@ class ZuulLicenseGate:
         self._cache_time: float = 0.0
 
     @property
-    def is_agpl_mode(self) -> bool:
+    def is_community_mode(self) -> bool:
         return not self._license_key
 
     def _get_client(self):
@@ -64,7 +64,7 @@ class ZuulLicenseGate:
                     cache_ttl=self._cache_ttl,
                 )
             except ImportError:
-                logger.debug("vinzy_engine not installed; ZuulLicenseGate in AGPL mode")
+                logger.debug("vinzy_engine not installed; ZuulLicenseGate in community mode")
                 return None
         return self._client
 
@@ -87,15 +87,15 @@ class ZuulLicenseGate:
             self._cache_time = now
             return []
         except Exception:
-            logger.debug("Vinzy-Engine unreachable; fail-open", exc_info=True)
+            logger.debug("Vinzy-Engine unreachable; fail-closed", exc_info=True)
             return []
 
     def check_feature(self, flag: str) -> bool:
-        if self.is_agpl_mode:
-            return True
+        if self.is_community_mode:
+            return False
         features = self._refresh_features()
         if not features:
-            return True
+            return False
         return flag in features
 
     def require_feature(self, flag: str, label: str | None = None):
