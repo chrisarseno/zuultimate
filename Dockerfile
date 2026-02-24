@@ -11,7 +11,7 @@ COPY alembic.ini .
 COPY alembic/ alembic/
 COPY config/ config/
 
-RUN pip install --no-cache-dir ".[redis]"
+RUN pip install --no-cache-dir ".[postgres,redis]"
 
 RUN mkdir -p data
 
