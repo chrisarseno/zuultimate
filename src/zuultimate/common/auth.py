@@ -1,6 +1,7 @@
 """Authentication & authorization middleware."""
 
 import hashlib
+from datetime import datetime, timezone
 from typing import Callable
 
 from fastapi import Depends, HTTPException, Request
@@ -12,12 +13,53 @@ from zuultimate.common.security import decode_jwt
 _bearer = HTTPBearer()
 
 
+async def _authenticate_api_key(token: str, request: Request) -> dict:
+    """Authenticate via API key (gzr_ prefix). Returns user-like dict."""
+    from zuultimate.identity.models import ApiKey, Tenant
+
+    db = request.app.state.db
+    key_hash = hashlib.sha256(token.encode()).hexdigest()
+    prefix = token[:8]
+
+    async with db.get_session("identity") as session:
+        result = await session.execute(
+            select(ApiKey).where(ApiKey.key_prefix == prefix, ApiKey.is_active == True)
+        )
+        api_key = result.scalar_one_or_none()
+        if api_key is None or api_key.key_hash != key_hash:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+
+        # Update last_used_at
+        api_key.last_used_at = datetime.now(timezone.utc)
+        await session.flush()
+
+        # Verify tenant is active
+        result = await session.execute(
+            select(Tenant).where(Tenant.id == api_key.tenant_id, Tenant.is_active == True)
+        )
+        tenant = result.scalar_one_or_none()
+        if tenant is None:
+            raise HTTPException(status_code=401, detail="Tenant not found or inactive")
+
+    return {
+        "user_id": None,
+        "username": f"apikey:{api_key.name}",
+        "tenant_id": api_key.tenant_id,
+    }
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
 ) -> dict:
-    """Validate JWT access token and verify session exists in DB."""
+    """Validate JWT access token or API key and return user context."""
     token = credentials.credentials
+
+    # API key path
+    if token.startswith("gzr_"):
+        return await _authenticate_api_key(token, request)
+
+    # JWT path
     settings = request.app.state.settings
 
     try:
@@ -56,6 +98,15 @@ async def get_current_user(
         "username": payload.get("username", ""),
         "tenant_id": payload.get("tenant_id"),
     }
+
+
+async def get_service_caller(request: Request) -> str:
+    """Validates internal service-to-service token. Returns service name."""
+    token = request.headers.get("X-Service-Token", "")
+    settings = request.app.state.settings
+    if not token or not settings.service_token or token != settings.service_token:
+        raise HTTPException(status_code=401, detail="Invalid service token")
+    return "internal"
 
 
 async def get_tenant_id(user: dict = Depends(get_current_user)) -> str | None:

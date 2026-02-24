@@ -130,3 +130,40 @@ class TenantResponse(BaseModel):
     name: str = Field(..., description="Tenant display name")
     slug: str = Field(..., description="URL-safe tenant slug")
     is_active: bool = Field(..., description="Whether the tenant is active")
+    plan: str = Field(default="starter", description="Subscription plan")
+    status: str = Field(default="active", description="Tenant status")
+
+
+class TenantProvisionRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255, description="Tenant display name", examples=["Acme Corp"])
+    slug: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$", description="URL-safe slug", examples=["acme-corp"])
+    owner_email: str = Field(..., description="Owner user email", examples=["admin@acme.com"])
+    owner_username: str = Field(min_length=3, max_length=100, description="Owner username", examples=["acme-admin"])
+    owner_password: str = Field(min_length=8, description="Owner password", examples=["Secret1234"])
+    plan: str = Field(default="starter", pattern=r"^(starter|pro|business)$", description="Subscription plan")
+    stripe_customer_id: str | None = Field(default=None, description="Stripe customer ID")
+    stripe_subscription_id: str | None = Field(default=None, description="Stripe subscription ID")
+
+    @field_validator("owner_email")
+    @classmethod
+    def validate_owner_email(cls, v: str) -> str:
+        pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        if not re.match(pattern, v):
+            raise ValueError("Invalid email format")
+        return v.lower()
+
+
+class TenantProvisionResponse(BaseModel):
+    tenant_id: str = Field(..., description="Created tenant UUID")
+    user_id: str = Field(..., description="Created owner user UUID")
+    api_key: str = Field(..., description="Plaintext API key (shown only once)")
+    plan: str = Field(..., description="Subscription plan")
+    entitlements: list[str] = Field(default_factory=list, description="Granted feature entitlements")
+
+
+class AuthValidateResponse(BaseModel):
+    user_id: str | None = Field(default=None, description="User UUID (None for API key auth)")
+    username: str = Field(..., description="Username or API key name")
+    tenant_id: str | None = Field(default=None, description="Tenant UUID")
+    plan: str = Field(default="starter", description="Tenant subscription plan")
+    entitlements: list[str] = Field(default_factory=list, description="Feature entitlements")

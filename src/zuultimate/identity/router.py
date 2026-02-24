@@ -7,7 +7,9 @@ from zuultimate.common.exceptions import ZuulError
 from zuultimate.common.rate_limit import rate_limit_login
 from zuultimate.common.schemas import STANDARD_ERRORS
 from zuultimate.identity.mfa_service import MFAService
+from zuultimate.common.config import PLAN_ENTITLEMENTS
 from zuultimate.identity.schemas import (
+    AuthValidateResponse,
     EmailVerificationResponse,
     EmailVerifyRequest,
     LoginRequest,
@@ -160,4 +162,41 @@ async def mfa_challenge(body: MFAChallengeRequest, request: Request):
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
         expires_in=request.app.state.settings.access_token_expire_minutes * 60,
+    )
+
+
+@router.get("/auth/validate", summary="Validate token and return tenant context", response_model=AuthValidateResponse)
+async def auth_validate(
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Validates the caller's token and returns tenant context + entitlements.
+
+    Used by downstream services (TrendScope, etc.) to authenticate requests.
+    """
+    from zuultimate.identity.models import Tenant
+
+    tenant_id = user.get("tenant_id")
+    plan = "starter"
+
+    if tenant_id:
+        db = request.app.state.db
+        from sqlalchemy import select
+
+        async with db.get_session("identity") as session:
+            result = await session.execute(
+                select(Tenant).where(Tenant.id == tenant_id)
+            )
+            tenant = result.scalar_one_or_none()
+            if tenant:
+                plan = tenant.plan
+
+    entitlements = PLAN_ENTITLEMENTS.get(plan, [])
+
+    return AuthValidateResponse(
+        user_id=user.get("user_id"),
+        username=user.get("username", ""),
+        tenant_id=tenant_id,
+        plan=plan,
+        entitlements=entitlements,
     )

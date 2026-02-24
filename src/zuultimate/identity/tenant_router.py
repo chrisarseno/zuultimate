@@ -2,10 +2,15 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from zuultimate.common.auth import get_current_user
+from zuultimate.common.auth import get_current_user, get_service_caller
 from zuultimate.common.exceptions import ZuulError
 from zuultimate.common.schemas import STANDARD_ERRORS
-from zuultimate.identity.schemas import TenantCreateRequest, TenantResponse
+from zuultimate.identity.schemas import (
+    TenantCreateRequest,
+    TenantProvisionRequest,
+    TenantProvisionResponse,
+    TenantResponse,
+)
 from zuultimate.identity.tenant_service import TenantService
 
 router = APIRouter(prefix="/tenants", tags=["tenants"], responses=STANDARD_ERRORS)
@@ -59,5 +64,31 @@ async def deactivate_tenant(
     svc = _get_service(request)
     try:
         return await svc.deactivate_tenant(tenant_id)
+    except ZuulError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.post(
+    "/provision",
+    summary="Provision new tenant (service-to-service)",
+    response_model=TenantProvisionResponse,
+)
+async def provision_tenant(
+    body: TenantProvisionRequest,
+    request: Request,
+    _caller: str = Depends(get_service_caller),
+):
+    svc = _get_service(request)
+    try:
+        return await svc.provision_tenant(
+            name=body.name,
+            slug=body.slug,
+            owner_email=body.owner_email,
+            owner_username=body.owner_username,
+            owner_password=body.owner_password,
+            plan=body.plan,
+            stripe_customer_id=body.stripe_customer_id,
+            stripe_subscription_id=body.stripe_subscription_id,
+        )
     except ZuulError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

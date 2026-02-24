@@ -52,6 +52,9 @@ class ZuulSettings(BaseSettings):
     login_rate_limit: int = 10
     login_rate_window: int = 300  # seconds
 
+    # Service-to-service auth (Vinzy → Zuultimate)
+    service_token: str = ""
+
 
     def validate_for_production(self) -> None:
         """Raise if insecure defaults are used in non-development environments."""
@@ -67,6 +70,13 @@ class ZuulSettings(BaseSettings):
                 UserWarning,
                 stacklevel=2,
             )
+
+
+PLAN_ENTITLEMENTS: dict[str, list[str]] = {
+    "starter": ["trendscope:basic"],
+    "pro": ["trendscope:full", "nexus:basic"],
+    "business": ["trendscope:full", "nexus:full", "white_label"],
+}
 
 
 @lru_cache

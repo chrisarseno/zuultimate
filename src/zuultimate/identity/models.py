@@ -20,6 +20,24 @@ class Tenant(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    plan: Mapped[str] = mapped_column(String(50), default="starter")  # starter | pro | business
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active | suspended | cancelled
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class ApiKey(Base, TimestampMixin):
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), default="Default")
+    key_prefix: Mapped[str] = mapped_column(String(12), nullable=False, index=True)
+    key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class User(Base, TimestampMixin, SoftDeleteMixin):
