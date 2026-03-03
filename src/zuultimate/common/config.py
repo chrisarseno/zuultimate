@@ -73,9 +73,34 @@ class ZuulSettings(BaseSettings):
 
 
 PLAN_ENTITLEMENTS: dict[str, list[str]] = {
-    "starter": ["trendscope:basic"],
-    "pro": ["trendscope:full", "nexus:basic"],
-    "business": ["trendscope:full", "nexus:full", "white_label"],
+    "starter": [
+        "trendscope:basic",
+        "shopforge:basic",
+        "brandguard:basic",
+        "taskpilot:basic",
+        "sentinel:basic",
+        "shandorcode:basic",
+    ],
+    "pro": [
+        "trendscope:full",
+        "nexus:basic",
+        "shopforge:full",
+        "brandguard:full",
+        "taskpilot:full",
+        "sentinel:full",
+        "shandorcode:full",
+    ],
+    "business": [
+        "trendscope:full",
+        "nexus:full",
+        "shopforge:full",
+        "brandguard:full",
+        "taskpilot:full",
+        "sentinel:full",
+        "shandorcode:full",
+        "agentwerk:full",
+        "white_label",
+    ],
 }
 
 
