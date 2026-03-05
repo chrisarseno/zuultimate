@@ -210,6 +210,7 @@ def create_app() -> FastAPI:
     from zuultimate.backup_resilience.router import router as backup_router
     from zuultimate.plugins.router import router as plugins_router
     from zuultimate.common.webhook_router import router as webhook_router
+    from zuultimate.identity.phase2_router import router as phase2_router
 
     v1.include_router(ai_router)
     v1.include_router(identity_router)
@@ -222,6 +223,7 @@ def create_app() -> FastAPI:
     v1.include_router(backup_router)
     v1.include_router(plugins_router)
     v1.include_router(webhook_router)
+    v1.include_router(phase2_router)
 
     app.include_router(v1)
 

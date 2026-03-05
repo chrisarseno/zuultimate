@@ -21,6 +21,7 @@ from zuultimate.common.models import Base
 
 # Import all models so they register with Base.metadata
 import zuultimate.identity.models  # noqa: F401
+import zuultimate.identity.phase2_models  # noqa: F401
 import zuultimate.access.models  # noqa: F401
 import zuultimate.vault.models  # noqa: F401
 import zuultimate.pos.models  # noqa: F401

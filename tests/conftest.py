@@ -38,6 +38,7 @@ def test_settings():
 @pytest.fixture
 async def test_db(test_settings):
     import zuultimate.identity.models  # noqa: F401
+    import zuultimate.identity.phase2_models  # noqa: F401
     import zuultimate.access.models  # noqa: F401
     import zuultimate.vault.models  # noqa: F401
     import zuultimate.pos.models  # noqa: F401
