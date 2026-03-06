@@ -183,9 +183,11 @@ def upgrade() -> None:
             sa.Column(
                 "tenant_id",
                 sa.String(length=36),
-                sa.ForeignKey("tenants.id", ondelete="SET NULL"),
                 nullable=True,
             )
+        )
+        batch_op.create_foreign_key(
+            "fk_users_tenant_id", "tenants", ["tenant_id"], ["id"], ondelete="SET NULL"
         )
         batch_op.create_index("ix_users_tenant_id", ["tenant_id"])
 
@@ -613,6 +615,7 @@ def downgrade() -> None:
     # -- users: drop tenant_id --
     with op.batch_alter_table("users") as batch_op:
         batch_op.drop_index("ix_users_tenant_id")
+        batch_op.drop_constraint("fk_users_tenant_id", type_="foreignkey")
         batch_op.drop_column("tenant_id")
 
     # ------------------------------------------------------------------ #
