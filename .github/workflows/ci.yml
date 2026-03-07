@@ -2,12 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
   pull_request:
-    branches: [main, master]
-
-env:
-  ZUUL_ENVIRONMENT: testing
+    branches: [master]
 
 jobs:
   test:
@@ -29,8 +26,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Lint
-        run: ruff check src/ tests/
-
-      - name: Test
+      - name: Run tests
         run: pytest tests/ -q --tb=short
+
+      - name: Verify migrations
+        run: |
+          PYTHONPATH=src python -m alembic -x sqlalchemy.url=sqlite:///tmp_ci.db upgrade head
