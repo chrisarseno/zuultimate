@@ -24,207 +24,235 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(name: str) -> bool:
+    """Check if a table already exists (handles create_all before migrate)."""
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    return name in inspect(conn).get_table_names()
+
+
+def _column_exists(table: str, column: str) -> bool:
+    """Check if a column already exists on a table."""
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    cols = [c["name"] for c in inspect(conn).get_columns(table)]
+    return column in cols
+
+
 def upgrade() -> None:
     # ------------------------------------------------------------------ #
     # 1. Create new tables that other tables may reference               #
     # ------------------------------------------------------------------ #
 
     # -- tenants (must exist before FK columns reference it) --
-    op.create_table(
-        "tenants",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("slug", sa.String(length=100), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("slug"),
-    )
+    if not _table_exists("tenants"):
+        op.create_table(
+            "tenants",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("name", sa.String(length=255), nullable=False),
+            sa.Column("slug", sa.String(length=100), nullable=False),
+            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("slug"),
+        )
 
     # -- sso_providers --
-    op.create_table(
-        "sso_providers",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("protocol", sa.String(length=20), nullable=False),
-        sa.Column("issuer_url", sa.String(length=500), nullable=False),
-        sa.Column("client_id", sa.String(length=255), nullable=False),
-        sa.Column("client_secret_encrypted", sa.Text(), nullable=True),
-        sa.Column("metadata_url", sa.String(length=500), nullable=True),
-        sa.Column(
-            "tenant_id",
-            sa.String(length=36),
-            sa.ForeignKey("tenants.id", ondelete="SET NULL"),
-            nullable=True,
-        ),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index("ix_sso_providers_tenant_id", "sso_providers", ["tenant_id"])
+    if not _table_exists("sso_providers"):
+        op.create_table(
+            "sso_providers",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("name", sa.String(length=255), nullable=False),
+            sa.Column("protocol", sa.String(length=20), nullable=False),
+            sa.Column("issuer_url", sa.String(length=500), nullable=False),
+            sa.Column("client_id", sa.String(length=255), nullable=False),
+            sa.Column("client_secret_encrypted", sa.Text(), nullable=True),
+            sa.Column("metadata_url", sa.String(length=500), nullable=True),
+            sa.Column(
+                "tenant_id",
+                sa.String(length=36),
+                sa.ForeignKey("tenants.id", ondelete="SET NULL"),
+                nullable=True,
+            ),
+            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        op.create_index("ix_sso_providers_tenant_id", "sso_providers", ["tenant_id"])
 
     # -- email_verification_tokens --
-    op.create_table(
-        "email_verification_tokens",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column(
-            "user_id",
-            sa.String(length=36),
-            sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column("token_hash", sa.String(length=255), nullable=False),
-        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("used", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("token_hash"),
-    )
-    op.create_index(
-        "ix_email_verification_tokens_user_id",
-        "email_verification_tokens",
-        ["user_id"],
-    )
+    if not _table_exists("email_verification_tokens"):
+        op.create_table(
+            "email_verification_tokens",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column(
+                "user_id",
+                sa.String(length=36),
+                sa.ForeignKey("users.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
+            sa.Column("token_hash", sa.String(length=255), nullable=False),
+            sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("used", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("token_hash"),
+        )
+        op.create_index(
+            "ix_email_verification_tokens_user_id",
+            "email_verification_tokens",
+            ["user_id"],
+        )
 
     # -- settlement_batches --
-    op.create_table(
-        "settlement_batches",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column(
-            "terminal_id",
-            sa.String(length=36),
-            sa.ForeignKey("terminals.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column("transaction_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.Column("total_amount", sa.Float(), nullable=False, server_default=sa.text("0.0")),
-        sa.Column("currency", sa.String(length=3), nullable=False, server_default=sa.text("'USD'")),
-        sa.Column("status", sa.String(length=50), nullable=False, server_default=sa.text("'pending'")),
-        sa.Column("reference", sa.String(length=255), nullable=False, server_default=sa.text("''")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(
-        "ix_settlement_batches_terminal_id", "settlement_batches", ["terminal_id"]
-    )
+    if not _table_exists("settlement_batches"):
+        op.create_table(
+            "settlement_batches",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column(
+                "terminal_id",
+                sa.String(length=36),
+                sa.ForeignKey("terminals.id", ondelete="CASCADE"),
+                nullable=False,
+            ),
+            sa.Column("transaction_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+            sa.Column("total_amount", sa.Float(), nullable=False, server_default=sa.text("0.0")),
+            sa.Column("currency", sa.String(length=3), nullable=False, server_default=sa.text("'USD'")),
+            sa.Column("status", sa.String(length=50), nullable=False, server_default=sa.text("'pending'")),
+            sa.Column("reference", sa.String(length=255), nullable=False, server_default=sa.text("''")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        op.create_index(
+            "ix_settlement_batches_terminal_id", "settlement_batches", ["terminal_id"]
+        )
 
     # -- user_secrets --
-    op.create_table(
-        "user_secrets",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("user_id", sa.String(length=255), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("ciphertext", sa.LargeBinary(), nullable=False),
-        sa.Column("nonce", sa.LargeBinary(), nullable=False),
-        sa.Column("tag", sa.LargeBinary(), nullable=False),
-        sa.Column("category", sa.String(length=50), nullable=False, server_default=sa.text("'password'")),
-        sa.Column("notes", sa.Text(), nullable=False, server_default=sa.text("''")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index("ix_user_secrets_user_id", "user_secrets", ["user_id"])
+    if not _table_exists("user_secrets"):
+        op.create_table(
+            "user_secrets",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("user_id", sa.String(length=255), nullable=False),
+            sa.Column("name", sa.String(length=255), nullable=False),
+            sa.Column("ciphertext", sa.LargeBinary(), nullable=False),
+            sa.Column("nonce", sa.LargeBinary(), nullable=False),
+            sa.Column("tag", sa.LargeBinary(), nullable=False),
+            sa.Column("category", sa.String(length=50), nullable=False, server_default=sa.text("'password'")),
+            sa.Column("notes", sa.Text(), nullable=False, server_default=sa.text("''")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        op.create_index("ix_user_secrets_user_id", "user_secrets", ["user_id"])
 
     # -- webhook_configs --
-    op.create_table(
-        "webhook_configs",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("url", sa.String(length=500), nullable=False),
-        sa.Column("events_filter", sa.String(length=500), nullable=False, server_default=sa.text("'*'")),
-        sa.Column("secret", sa.String(length=255), nullable=False, server_default=sa.text("''")),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("description", sa.Text(), nullable=False, server_default=sa.text("''")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
+    if not _table_exists("webhook_configs"):
+        op.create_table(
+            "webhook_configs",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("url", sa.String(length=500), nullable=False),
+            sa.Column("events_filter", sa.String(length=500), nullable=False, server_default=sa.text("'*'")),
+            sa.Column("secret", sa.String(length=255), nullable=False, server_default=sa.text("''")),
+            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("description", sa.Text(), nullable=False, server_default=sa.text("''")),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+        )
 
     # -- webhook_deliveries --
-    op.create_table(
-        "webhook_deliveries",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("webhook_id", sa.String(length=36), nullable=False),
-        sa.Column("event_type", sa.String(length=100), nullable=False),
-        sa.Column("status", sa.String(length=20), nullable=False, server_default=sa.text("'pending'")),
-        sa.Column("response_code", sa.Integer(), nullable=True),
-        sa.Column("attempt_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.Column("last_error", sa.Text(), nullable=True),
-        sa.Column("payload", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-    )
+    if not _table_exists("webhook_deliveries"):
+        op.create_table(
+            "webhook_deliveries",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("webhook_id", sa.String(length=36), nullable=False),
+            sa.Column("event_type", sa.String(length=100), nullable=False),
+            sa.Column("status", sa.String(length=20), nullable=False, server_default=sa.text("'pending'")),
+            sa.Column("response_code", sa.Integer(), nullable=True),
+            sa.Column("attempt_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+            sa.Column("last_error", sa.Text(), nullable=True),
+            sa.Column("payload", sa.Text(), nullable=True),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+        )
 
     # -- idempotency_records --
-    op.create_table(
-        "idempotency_records",
-        sa.Column("id", sa.String(length=36), nullable=False),
-        sa.Column("idempotency_key", sa.String(length=255), nullable=False),
-        sa.Column("endpoint", sa.String(length=500), nullable=False),
-        sa.Column("response_status", sa.Integer(), nullable=False),
-        sa.Column("response_body", sa.Text(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("idempotency_key"),
-    )
+    if not _table_exists("idempotency_records"):
+        op.create_table(
+            "idempotency_records",
+            sa.Column("id", sa.String(length=36), nullable=False),
+            sa.Column("idempotency_key", sa.String(length=255), nullable=False),
+            sa.Column("endpoint", sa.String(length=500), nullable=False),
+            sa.Column("response_status", sa.Integer(), nullable=False),
+            sa.Column("response_body", sa.Text(), nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("idempotency_key"),
+        )
 
     # ------------------------------------------------------------------ #
     # 2. Add missing columns on existing tables                          #
     # ------------------------------------------------------------------ #
 
     # -- users: add tenant_id FK column --
-    with op.batch_alter_table("users") as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "tenant_id",
-                sa.String(length=36),
-                nullable=True,
+    if not _column_exists("users", "tenant_id"):
+        with op.batch_alter_table("users") as batch_op:
+            batch_op.add_column(
+                sa.Column(
+                    "tenant_id",
+                    sa.String(length=36),
+                    nullable=True,
+                )
             )
-        )
-        batch_op.create_foreign_key(
-            "fk_users_tenant_id", "tenants", ["tenant_id"], ["id"], ondelete="SET NULL"
-        )
-        batch_op.create_index("ix_users_tenant_id", ["tenant_id"])
+            batch_op.create_foreign_key(
+                "fk_users_tenant_id", "tenants", ["tenant_id"], ["id"], ondelete="SET NULL"
+            )
+            batch_op.create_index("ix_users_tenant_id", ["tenant_id"])
 
     # -- terminals: add tenant_id column --
-    with op.batch_alter_table("terminals") as batch_op:
-        batch_op.add_column(
-            sa.Column("tenant_id", sa.String(length=36), nullable=True)
-        )
-        batch_op.create_index("ix_terminals_tenant_id", ["tenant_id"])
+    if not _column_exists("terminals", "tenant_id"):
+        with op.batch_alter_table("terminals") as batch_op:
+            batch_op.add_column(
+                sa.Column("tenant_id", sa.String(length=36), nullable=True)
+            )
+            batch_op.create_index("ix_terminals_tenant_id", ["tenant_id"])
 
     # -- snapshots: add tenant_id column --
-    with op.batch_alter_table("snapshots") as batch_op:
-        batch_op.add_column(
-            sa.Column("tenant_id", sa.String(length=36), nullable=True)
-        )
-        batch_op.create_index("ix_snapshots_tenant_id", ["tenant_id"])
+    if not _column_exists("snapshots", "tenant_id"):
+        with op.batch_alter_table("snapshots") as batch_op:
+            batch_op.add_column(
+                sa.Column("tenant_id", sa.String(length=36), nullable=True)
+            )
+            batch_op.create_index("ix_snapshots_tenant_id", ["tenant_id"])
 
     # -- crm_configs: add tenant_id column --
-    with op.batch_alter_table("crm_configs") as batch_op:
-        batch_op.add_column(
-            sa.Column("tenant_id", sa.String(length=36), nullable=True)
-        )
-        batch_op.create_index("ix_crm_configs_tenant_id", ["tenant_id"])
+    if not _column_exists("crm_configs", "tenant_id"):
+        with op.batch_alter_table("crm_configs") as batch_op:
+            batch_op.add_column(
+                sa.Column("tenant_id", sa.String(length=36), nullable=True)
+            )
+            batch_op.create_index("ix_crm_configs_tenant_id", ["tenant_id"])
 
     # -- encrypted_blobs: add rotation_count and last_rotated --
-    with op.batch_alter_table("encrypted_blobs") as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "rotation_count",
-                sa.Integer(),
-                nullable=False,
-                server_default=sa.text("0"),
+    if not _column_exists("encrypted_blobs", "rotation_count"):
+        with op.batch_alter_table("encrypted_blobs") as batch_op:
+            batch_op.add_column(
+                sa.Column(
+                    "rotation_count",
+                    sa.Integer(),
+                    nullable=False,
+                    server_default=sa.text("0"),
+                )
             )
-        )
-        batch_op.add_column(
-            sa.Column("last_rotated", sa.DateTime(timezone=True), nullable=True)
-        )
+            batch_op.add_column(
+                sa.Column("last_rotated", sa.DateTime(timezone=True), nullable=True)
+            )
 
     # ------------------------------------------------------------------ #
     # 3. Rebuild security_events: Integer PK -> String(36) UUID PK       #
